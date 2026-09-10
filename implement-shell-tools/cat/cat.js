@@ -21,8 +21,11 @@ program
 program.parse();
 
 const files = program.args;
-const isNumber = program.opts().number;
 const isNonblank = program.opts().numberNonblank;
+const isNumber = (isNonblank ? false : program.opts().number);
+let isSameLine = false;
+let content = "";
+let count = 1;
 
 // commander cannot specify a default value for an optional command-argument
 if (files.length==0) {
@@ -31,21 +34,26 @@ if (files.length==0) {
 
 for (let file of files) {
     try {
-        let content = await fs.readFile(file, "utf-8");
+        content = await fs.readFile(file, "utf-8");
         let lines = content.split("\n");
         let i = 0;
 
         while (i<lines.length-1) {
-            if (isNumber) {
-                process.stdout.write((i+1).toString().padStart(6, " ")+"  ");
+            if ((isNumber || (isNonblank && lines[i]!="")) && !isSameLine) {
+                process.stdout.write(count.toString().padStart(6, " ")+"  ");
+                count++;
             }
             process.stdout.write(lines[i]+"\n");
             i++;
+            isSameLine = false;
         }
 
-        // handle special case whether with or without trailing \n
-        if (isNumber && lines[i]!="") {
-            process.stdout.write((i+1).toString().padStart(6, " ")+"  ");
+        // handle special case when file without trailing \n
+        //if ((isNumber || (isNonblank && lines[i]!="")) && lines[i]!="" && !isSameLine) {
+        if ((isNumber || isNonblank) && lines[i]!="" && !isSameLine) {
+            process.stdout.write(count.toString().padStart(6, " ")+"  ");
+            count++;
+            isSameLine = true;
         }
         process.stdout.write(lines[i]);
     }
