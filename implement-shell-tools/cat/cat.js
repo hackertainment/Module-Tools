@@ -21,9 +21,8 @@ program
 program.parse();
 
 const files = program.args;
-const number = program.opts().number;
-const nonblank = program.opts().numberNonblank;
-let content = "";
+const isNumber = program.opts().number;
+const isNonblank = program.opts().numberNonblank;
 
 // commander cannot specify a default value for an optional command-argument
 if (files.length==0) {
@@ -32,8 +31,23 @@ if (files.length==0) {
 
 for (let file of files) {
     try {
-        content = await fs.readFile(file, "utf-8");
-        process.stdout.write(content);
+        let content = await fs.readFile(file, "utf-8");
+        let lines = content.split("\n");
+        let i = 0;
+
+        while (i<lines.length-1) {
+            if (isNumber) {
+                process.stdout.write((i+1).toString().padStart(6, " ")+"  ");
+            }
+            process.stdout.write(lines[i]+"\n");
+            i++;
+        }
+
+        // handle special case whether with or without trailing \n
+        if (isNumber && lines[i]!="") {
+            process.stdout.write((i+1).toString().padStart(6, " ")+"  ");
+        }
+        process.stdout.write(lines[i]);
     }
     catch (error) {
         console.error(error.message.split(",")[0].replace(/^[A-Z]*:/, `${TOOL_NAME}: ${file}:`));
