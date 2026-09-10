@@ -34,7 +34,7 @@ if (files.length==0) {
 
 for (let file of files) {
     try {
-        content = await fs.readFile(file, "utf-8");
+        content = await fs.readFile((file=="-" ? "/dev/stdin" : file), "utf-8");  // TODO: should echo line immediately when pressing enter
         let lines = content.split("\n");
         let i = 0;
 
