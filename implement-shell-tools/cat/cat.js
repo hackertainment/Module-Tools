@@ -6,6 +6,12 @@ import process from "node:process";
 
 const TOOL_NAME = process.argv[1].split("/").pop();
 const TOOL_AUTHOR = "Wyatt L.";
+const TOOL_VERSION = `${TOOL_NAME} (CYF shelltools) 1.00\n\nWritten by ${TOOL_AUTHOR}`;
+const TOOL_CAVEAT = `
+Examples:
+  ${TOOL_NAME} f - g  Output f's contents, then standard input, then g's contents.
+  ${TOOL_NAME}        Copy standard input to standard output.
+`;
 
 program
     .name(TOOL_NAME)
@@ -14,8 +20,8 @@ program
     .option("-b, --number-nonblank", "number nonempty output lines, overrides -n")
     .option("-n, --number", "number all output lines")
     .helpOption("--help", "display this help and exit")
-    .version(`${TOOL_NAME} (CYF shelltools) 1.00\n\nWritten by ${TOOL_AUTHOR}`, "--version", "output version information and exit")
-    .addHelpText("after", `\nExamples:\n  ${TOOL_NAME} f - g  Output f's contents, then standard input, then g's contents.\n  ${TOOL_NAME}        Copy standard input to standard output.`)
+    .version(TOOL_VERSION, "--version", "output version information and exit")
+    .addHelpText("after", TOOL_CAVEAT)
     .argument("[FILE...]", null, ["-"])
     .parse();
 
