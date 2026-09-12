@@ -16,44 +16,41 @@ program
     .helpOption("--help", "display this help and exit")
     .version(`${TOOL_NAME} (CYF shelltools) 1.00\n\nWritten by ${TOOL_AUTHOR}`, "--version", "output version information and exit")
     .addHelpText("after", `\nExamples:\n  ${TOOL_NAME} f - g  Output f's contents, then standard input, then g's contents.\n  ${TOOL_NAME}        Copy standard input to standard output.`)
-    .argument("[FILE...]", null, ["-"]);
-
-program.parse();
+    .argument("[FILE...]", null, ["-"])
+    .parse();
 
 const files = program.args;
 const isNonblank = program.opts().numberNonblank;
 const isNumber = (isNonblank ? false : program.opts().number);
-let isSameLine = false;
-let content = "";
-let count = 1;
 
-// commander cannot specify a default value for an optional command-argument
+// commander not correctly specify default value for an optional command-argument
 if (files.length==0) {
     files.push("-");
 }
 
+let isAppend = false;
+let count = 1;
+
 for (let file of files) {
     try {
-        content = await fs.readFile((file=="-" ? "/dev/stdin" : file), "utf-8");  // TODO: should echo line immediately when pressing enter
+        let content = await fs.readFile((file=="-" ? "/dev/stdin" : file), "utf-8");  // TODO: should echo line immediately when pressing enter
         let lines = content.split("\n");
         let i = 0;
 
         while (i<lines.length-1) {
-            if ((isNumber || (isNonblank && lines[i]!="")) && !isSameLine) {
-                process.stdout.write(count.toString().padStart(6, " ")+"  ");
-                count++;
+            if ((isNumber || (isNonblank && lines[i]!="")) && !isAppend) {
+                process.stdout.write((++count).toString().padStart(6, " ")+"  ");
             }
             process.stdout.write(lines[i]+"\n");
+            isAppend = false;
             i++;
-            isSameLine = false;
         }
 
         // handle special case when file without trailing \n
-        //if ((isNumber || (isNonblank && lines[i]!="")) && lines[i]!="" && !isSameLine) {
-        if ((isNumber || isNonblank) && lines[i]!="" && !isSameLine) {
-            process.stdout.write(count.toString().padStart(6, " ")+"  ");
-            count++;
-            isSameLine = true;
+        //if ((isNumber || (isNonblank && lines[i]!="")) && lines[i]!="" && !isAppend) {
+        if ((isNumber || isNonblank) && lines[i]!="" && !isAppend) {
+            process.stdout.write((++count).toString().padStart(6, " ")+"  ");
+            isAppend = true;
         }
         process.stdout.write(lines[i]);
     }
