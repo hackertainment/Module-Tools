@@ -41,7 +41,7 @@ program
     .argument("[FILE...]", null, ["./"])
     .parse();
 
-const paths = program.args;
+const paths = program.args.sort();
 const isAll = program.opts().all;
 const isLong = program.opts().l;
 
@@ -50,6 +50,37 @@ if (paths.length==0) {
     paths.push("./");
 }
 
-console.log(paths);
-let filenames = await fs.readdir(paths[0]);
-console.log(filenames);
+function listPretty(isPrependSpace) {
+    return function (filename) {
+        const [dir, ext] = process.env.LS_COLORS.replace(":*", "\n").split("\n");
+        const dirs = Object.fromEntries(new URLSearchParams(dir.replaceAll("=", "=\x1b[").replaceAll(":", "m&")+"m"));
+        const exts = Object.fromEntries(new URLSearchParams(ext.replaceAll("*", "").replaceAll("=", "=\x1b[").replaceAll(":", "m&")));
+    
+        // if filename has space, add single quote to it and leading space to others
+        if (filename.includes(" ")) {
+            filename = "'"+filename+"'";
+        }
+        else if (isPrependSpace) {
+            filename = " "+filename;
+        }
+
+        return filename;
+    }
+}
+
+function listTabular(filenames) {
+    console.table(filenames);
+}
+
+for (let [i, path] of paths.entries()) {
+    let filenames = await fs.readdir(path);
+    let isAnySpace = filenames.filter((filename) => filename.includes(" ")).length!=0;
+
+    if (paths.length>1) {
+        process.stdout.write(path+":\n");
+    }
+    listTabular(filenames.sort().map(listPretty(isAnySpace)));  // the whole _listPretty(isAnySpace)_ is a template function
+    if (i<paths.length-1) {
+        process.stdout.write("\n");
+    }
+}
