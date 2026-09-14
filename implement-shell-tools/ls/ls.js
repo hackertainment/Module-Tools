@@ -1,7 +1,8 @@
 #!/home/ec2-user/.nvm/versions/node/v24.19.0/bin/node
 
 import { program } from "commander";
-import { promises as fs } from "node:fs";
+//import { promises as fs } from "node:fs";
+import fs from "node:fs";
 import process from "node:process";
 
 const TOOL_NAME = process.argv[1].split("/").pop();
@@ -36,7 +37,7 @@ program
     .option("-a, --all", "do not ignore entries starting with .")
     .option("-l", "use a long listing format")
     .helpOption("--help", "display this help and exit")
-    .version(`${TOOL_NAME} (CYF shelltools) 1.00\n\nWritten by ${TOOL_AUTHOR}`, "--version", "output version information and exit")
+    .version(TOOL_VERSION, "--version", "output version information and exit")
     .addHelpText("after", TOOL_CAVEAT)
     .argument("[FILE...]", null, ["./"])
     .parse();
@@ -54,14 +55,68 @@ function listPretty(isPrependSpace) {
     return function (filename) {
         const [dir, ext] = process.env.LS_COLORS.replace(":*", "\n").split("\n");
         const dirs = Object.fromEntries(new URLSearchParams(dir.replaceAll("=", "=\x1b[").replaceAll(":", "m&")+"m"));
-        const exts = Object.fromEntries(new URLSearchParams(ext.replaceAll("*", "").replaceAll("=", "=\x1b[").replaceAll(":", "m&")));
+        const exts = Object.fromEntries(new URLSearchParams(ext.replaceAll("=", "=\x1b[").replaceAll(":", "m&")));
+        const lstats = fs.lstatSync(filename);
+        const isExist = fs.existsSync(filename);
+        let prefix = "";
+        let suffix = "";
     
         // if filename has space, add single quote to it and leading space to others
         if (filename.includes(" ")) {
-            filename = "'"+filename+"'";
+            prefix = "'";
+            suffix = "'";
         }
         else if (isPrependSpace) {
-            filename = " "+filename;
+            prefix = " ";
+        }
+
+        if (lstats.isDirectory() && (lstats.mode&0o1000)!=0 && (lstats.mode&0o0002)!=0) {
+            filename = dirs.tw+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isDirectory() && (lstats.mode&0o0002)!=0) {
+            filename = dirs.ow+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isDirectory() && (lstats.mode&0o1000)!=0) {
+            filename = dirs.st+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isDirectory()) {
+            filename = dirs.di+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isSymbolicLink() && isExist) {
+            filename = dirs.ln+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isSymbolicLink() && !isExist) {
+            filename = dirs.or+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.nlink>1) {
+            filename = dirs.mh+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isFIFO()) {
+            filename = dirs.pi+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isSocket()) {
+            filename = dirs.so+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isBlockDevice()) {
+            filename = dirs.bd+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isCharacterDevice()) {
+            filename = dirs.cd+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isFile() && (lstats.mode&0o4000)!=0) {
+            filename = dirs.su+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isFile() && (lstats.mode&0o2000)!=0) {
+            filename = dirs.sg+prefix+filename+suffix+dirs.rs;
+        }
+        else if (lstats.isFile() && (lstats.mode&0o0111)!=0) {
+            filename = dirs.ex+prefix+filename+suffix+dirs.rs;
+        }
+        else if (Object.keys(exts).includes("*."+filename.split(".").pop())) {
+            filename = exts["*."+filename.split(".").pop()]+prefix+filename+suffix+dirs.rs;
+        }
+        else {
+            filename = prefix+filename+suffix;
         }
 
         return filename;
@@ -69,17 +124,17 @@ function listPretty(isPrependSpace) {
 }
 
 function listTabular(filenames) {
-    console.table(filenames);
+    console.log(...filenames);
 }
 
 for (let [i, path] of paths.entries()) {
-    let filenames = await fs.readdir(path);
+    let filenames = fs.readdirSync(path);
     let isAnySpace = filenames.filter((filename) => filename.includes(" ")).length!=0;
 
     if (paths.length>1) {
         process.stdout.write(path+":\n");
     }
-    listTabular(filenames.sort().map(listPretty(isAnySpace)));  // the whole _listPretty(isAnySpace)_ is a template function
+    listTabular(filenames.sort().map(listPretty(isAnySpace)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲)̲ ̲ is a template function name
     if (i<paths.length-1) {
         process.stdout.write("\n");
     }
