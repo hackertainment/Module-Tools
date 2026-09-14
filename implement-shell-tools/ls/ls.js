@@ -123,14 +123,19 @@ function listPretty(isPrependSpace, path) {
     }
 }
 
-function listTabular(filenames) {
-    for (let filename of filenames) {
-        process.stdout.write(filename+"  ");
+function listLong(prettyFilenames, filenames) {
+    console.table(prettyFilenames);
+}
+
+function listTabular(prettyFilenames) {
+    for (let prettyName of prettyFilenames) {
+        process.stdout.write(prettyName+"  ");
     }
     process.stdout.write("\n");
 }
 
 for (let [i, path] of paths.entries()) {
+    let prettyFilenames = [];
     let filenames = fs.readdirSync(path);
     let isAnySpace = filenames.filter((filename) => filename.includes(" ")).length!=0;
 
@@ -145,10 +150,17 @@ for (let [i, path] of paths.entries()) {
         }
     }
 
+    prettyFilenames = filenames.map(listPretty(isAnySpace, path));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
     if (paths.length>1) {
         process.stdout.write(path+":\n");
     }
-    listTabular(filenames.map(listPretty(isAnySpace, path)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
+    if (isLong) {
+        process.stdout.write("total "+"??"+"\n");
+        listLong(prettyFilenames, filenames);
+    }
+    else {
+        listTabular(prettyFilenames);
+    }
     if (i<paths.length-1) {
         process.stdout.write("\n");
     }
