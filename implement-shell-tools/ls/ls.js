@@ -51,16 +51,40 @@ if (paths.length==0) {
     paths.push("./");
 }
 
+const RWXS = ["---", "--x", "-w-", "-wx", "r--", "r-x", "rw-", "rwx"]
+const [DIR, EXT] = process.env.LS_COLORS.replace(":*", "\n").split("\n");
+const DIRS = Object.fromEntries(new URLSearchParams(DIR.replaceAll("=", "=\x1b[").replaceAll(":", "m&")+"m"));
+const EXTS = Object.fromEntries(new URLSearchParams(EXT.replaceAll("=", "=\x1b[").replaceAll(":", "m&")));
+const UIDS = {};
+const GIDS = {};
+
+function getent() {
+    let passwds = fs.readFileSync("/etc/passwd", "utf8").split("\n");
+    let groups = fs.readFileSync("/etc/group", "utf8").split("\n");
+    let fields = [];
+    let length = 0;
+
+    for (let line of passwds) {
+        if (line.trim()!="" && !line.startsWith("#")) {
+            fields = line.split(":");
+            UIDS[fields[2].toString()] = fields[0];
+        }
+    }
+    for (let line of groups) {
+        if (line.trim()!="" && !line.startsWith("#")) {
+            fields = line.split(":");
+            GIDS[fields[2].toString()] = fields[0];
+        }
+    }
+}
+
 function listPretty(isPrependSpace, path) {
     return function (filename) {
-        const [dir, ext] = process.env.LS_COLORS.replace(":*", "\n").split("\n");
-        const dirs = Object.fromEntries(new URLSearchParams(dir.replaceAll("=", "=\x1b[").replaceAll(":", "m&")+"m"));
-        const exts = Object.fromEntries(new URLSearchParams(ext.replaceAll("=", "=\x1b[").replaceAll(":", "m&")));
         const lstats = fs.lstatSync(path+"/"+filename);
         const isExist = fs.existsSync(path+"/"+filename);
         let prefix = "";
         let suffix = "";
-    
+
         // if filename has space, add single quote to it and leading space to others
         if (filename.includes(" ")) {
             prefix = "'";
@@ -70,61 +94,152 @@ function listPretty(isPrependSpace, path) {
             prefix = " ";
         }
 
-        if (lstats.isDirectory() && (lstats.mode&0o1000)!=0 && (lstats.mode&0o0002)!=0) {
-            filename = dirs.tw+prefix+filename+suffix+dirs.rs;
+        Object.assign(DIRS, {rs: "\x1b[0m"});
+        if (lstats.isDirectory() && (lstats.mode&0o1000)!=0 && (lstats.mode&0o0002)!=0) {  // sticky other-writable directory (+t,o+w)
+            filename = (DIRS.hasOwnProperty("tw") ? DIRS.tw : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isDirectory() && (lstats.mode&0o0002)!=0) {
-            filename = dirs.ow+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isDirectory() && (lstats.mode&0o0002)!=0) {  // other-writable directory (o+w)
+            filename = (DIRS.hasOwnProperty("ow") ? DIRS.ow : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isDirectory() && (lstats.mode&0o1000)!=0) {
-            filename = dirs.st+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isDirectory() && (lstats.mode&0o1000)!=0) {  // sticky directory (+t)
+            filename = (DIRS.hasOwnProperty("st") ? DIRS.st : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isDirectory()) {
-            filename = dirs.di+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isDirectory()) {  // directory
+            filename = (DIRS.hasOwnProperty("di") ? DIRS.di : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isSymbolicLink() && isExist) {
-            filename = dirs.ln+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isSymbolicLink() && isExist) {  // symbolic link
+            filename = (DIRS.hasOwnProperty("ln") ? DIRS.ln : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isSymbolicLink() && !isExist) {
-            filename = dirs.or+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isSymbolicLink() && !isExist) {  // orphan symlink -> missing file
+            filename = (DIRS.hasOwnProperty("or") ? DIRS.or : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.nlink>1) {
-            filename = dirs.mh+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isFile() && lstats.nlink>1) {  // multi-hardlink
+            filename = (DIRS.hasOwnProperty("mh") ? DIRS.mh : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isFIFO()) {
-            filename = dirs.pi+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isFIFO()) {  // FIFO (named pipe)
+            filename = (DIRS.hasOwnProperty("pi") ? DIRS.pi : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isSocket()) {
-            filename = dirs.so+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isSocket()) {  // socket
+            filename = (DIRS.hasOwnProperty("so") ? DIRS.so : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isBlockDevice()) {
-            filename = dirs.bd+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isSocket()) {  // door (Solaris 2.5 and later)
+            filename = (DIRS.hasOwnProperty("do") ? DIRS.do : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isCharacterDevice()) {
-            filename = dirs.cd+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isBlockDevice()) {  // block device
+            filename = (DIRS.hasOwnProperty("bd") ? DIRS.bd : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isFile() && (lstats.mode&0o4000)!=0) {
-            filename = dirs.su+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isCharacterDevice()) {  // character device
+            filename = (DIRS.hasOwnProperty("cd") ? DIRS.cd : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isFile() && (lstats.mode&0o2000)!=0) {
-            filename = dirs.sg+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isFile() && (lstats.mode&0o4000)!=0) {  // set user id (u+s)
+            filename = (DIRS.hasOwnProperty("su") ? DIRS.su : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (lstats.isFile() && (lstats.mode&0o0111)!=0) {
-            filename = dirs.ex+prefix+filename+suffix+dirs.rs;
+        else if (lstats.isFile() && (lstats.mode&0o2000)!=0) {  // set group id (g+s)
+            filename = (DIRS.hasOwnProperty("sg") ? DIRS.sg : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else if (Object.keys(exts).includes("*."+filename.split(".").pop())) {
-            filename = exts["*."+filename.split(".").pop()]+prefix+filename+suffix+dirs.rs;
+        //else if (lstats.isFile() && ???) {  // TODO: file with capability
+        //    filename = (DIRS.hasOwnProperty("ca") ? DIRS.ca : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
+        //}
+        else if (lstats.isFile() && (lstats.mode&0o0111)!=0) {  // executable file
+            filename = (DIRS.hasOwnProperty("ex") ? DIRS.ex : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
         }
-        else {
-            filename = prefix+filename+suffix;
+        else if (lstats.isFile() && Object.keys(EXTS).includes("*."+filename.split(".").pop())) {
+            filename = EXTS["*."+filename.split(".").pop()]+prefix+filename+suffix+DIRS.rs;
+        }
+        else if (lstats.isFile()) {  // regular file
+            filename = (DIRS.hasOwnProperty("fi") ? DIRS.fi : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
+        }
+        else {  // normal (non-filename) text
+            filename = (DIRS.hasOwnProperty("no") ? DIRS.no : DIRS.rs)+prefix+filename+suffix+DIRS.rs;
+        }
+
+        if (isLong) {
+            filename = `${lstats.blocks}\t${lstats.mode}\t${lstats.nlink}\t${lstats.uid}\t${lstats.gid}\t${lstats.size}\t${lstats.mtime}\t${filename}`;
         }
 
         return filename;
     }
 }
 
-function listLong(prettyFilenames, filenames) {
-    console.table(prettyFilenames);
+function listLong(prettyFilenames) {
+    let cols = [];
+    let totalBlock = 0;
+    let maxNlink = 0;
+    let maxUlength = 0;
+    let maxGlength = 0;
+    let maxSize = 0;
+    let ftype = " ";
+    let owner = "---";
+    let group = "---";
+    let other = "---";
+    let xattr = " ";
+
+    for (let row of prettyFilenames) {
+        cols = row.split("\t");
+        totalBlock = totalBlock+Number(cols[0]);
+        maxNlink = (Number(cols[2])>maxNlink ? Number(cols[2]) : maxNlink);
+        length = UIDS[cols[3].toString()].length;
+        maxUlength = (length>maxUlength ? length : maxUlength);
+        length = GIDS[cols[4].toString()].length;
+        maxUlength = (length>maxGlength ? length : maxGlength);
+        maxSize = (Number(cols[5])>maxSize ? Number(cols[5]) : maxSize);
+    }
+
+    // https://unix.stackexchange.com/questions/28780/file-block-size-difference-between-stat-and-ls
+    // linux `stat` struct stat {... blkcnt_t  st_blocks; ...} indicates *number of 512B blocks allocated*
+    // but `ls` #define DEFAULT_BLOCK_SIZE 1024 *Byte*
+    // so for example 9-10 blocks in `stat` would just be 5 blocks in `ls`
+    process.stdout.write("total "+Math.ceil(totalBlock/2)+"\n");
+    for (let row of prettyFilenames) {
+        cols = row.split("\t");
+        if ((cols[1]&fs.constants.S_IFSOCK)==fs.constants.S_IFSOCK) {
+            ftype = "s";  // socket
+        }
+        else if ((cols[1]&fs.constants.S_IFLNK)==fs.constants.S_IFLNK) {
+            ftype = "l";  // symbolic link
+        }
+        else if ((cols[1]&fs.constants.S_IFREG)==fs.constants.S_IFREG) {
+            ftype = "-";  // regular file
+        }
+        else if ((cols[1]&fs.constants.S_IFBLK)==fs.constants.S_IFBLK) {
+            ftype = "b";  // block-oriented device file
+        }
+        else if ((cols[1]&fs.constants.S_IFDIR)==fs.constants.S_IFDIR) {
+            ftype = "d";  // directory
+        }
+        else if ((cols[1]&fs.constants.S_IFCHR)==fs.constants.S_IFCHR) {
+            ftype = "c";  // character-oriented device file
+        }
+        else if ((cols[1]&fs.constants.S_IFIFO)==fs.constants.S_IFIFO) {
+            ftype = "p";  // FIFO/pipe
+        }
+        else if ((cols[1]&fs.constants.S_IFMT)!=0) {  // bit mask used to extract the file type code
+            ftype = "D";  // door
+        }
+        else {
+            ftype = "P";  // event port
+        }
+        owner = RWXS[(cols[1]>>6)&7];
+        group = RWXS[(cols[1]>>3)&7];
+        other = RWXS[(cols[1])&7];
+        if ((cols[1]&fs.constants.S_ISUID)!=0) {
+            owner = owner[0]+owner[1]+(owner[2]=="x" ? "s" : "S");
+        }
+        if ((cols[1]&fs.constants.S_ISGID)!=0) {
+            group = group[0]+group[1]+(group[2]=="x" ? "s" : "S");
+        }
+        if ((cols[1]&fs.constants.S_ISVTX)!=0) {
+            group = other[0]+other[1]+(other[2]=="x" ? "t" : "T");
+        }
+        xattr = ".";  // TODO: "@" or "+" or "."
+        process.stdout.write(ftype+owner+group+other+xattr+" ");
+        process.stdout.write(cols[2].toString().padStart(maxNlink.toString().length, " ")+" ");
+        process.stdout.write(UIDS[cols[3].toString()].padEnd(maxUlength, " ")+" ");
+        process.stdout.write(GIDS[cols[4].toString()].padEnd(maxGlength, " ")+" ");
+        process.stdout.write(cols[5].toString().padStart(maxSize.toString().length, " ")+" ");
+        process.stdout.write(cols[6].slice(4, 10).replace(" 0", "  ")+cols[6].slice(15, 21)+" ");
+        process.stdout.write(cols[7]+"\n");
+    }
 }
 
 function listTabular(prettyFilenames) {
@@ -134,6 +249,7 @@ function listTabular(prettyFilenames) {
     process.stdout.write("\n");
 }
 
+getent();
 for (let [i, path] of paths.entries()) {
     let prettyFilenames = [];
     let filenames = fs.readdirSync(path);
@@ -155,8 +271,7 @@ for (let [i, path] of paths.entries()) {
         process.stdout.write(path+":\n");
     }
     if (isLong) {
-        process.stdout.write("total "+"??"+"\n");
-        listLong(prettyFilenames, filenames);
+        listLong(prettyFilenames);
     }
     else {
         listTabular(prettyFilenames);
