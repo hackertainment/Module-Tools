@@ -124,17 +124,31 @@ function listPretty(isPrependSpace, path) {
 }
 
 function listTabular(filenames) {
-    console.log(...filenames);
+    for (let filename of filenames) {
+        process.stdout.write(filename+"  ");
+    }
+    process.stdout.write("\n");
 }
 
 for (let [i, path] of paths.entries()) {
     let filenames = fs.readdirSync(path);
     let isAnySpace = filenames.filter((filename) => filename.includes(" ")).length!=0;
 
+    filenames.sort();
+    if (isAll) {
+        filenames.unshift("..")
+        filenames.unshift(".");
+    }
+    else {
+        while (filenames.length>0 && filenames[0].startsWith(".")) {
+            filenames.shift();
+        }
+    }
+
     if (paths.length>1) {
         process.stdout.write(path+":\n");
     }
-    listTabular(filenames.sort().map(listPretty(isAnySpace, path)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
+    listTabular(filenames.map(listPretty(isAnySpace, path)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
     if (i<paths.length-1) {
         process.stdout.write("\n");
     }
