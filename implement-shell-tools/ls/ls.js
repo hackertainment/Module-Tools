@@ -51,13 +51,13 @@ if (paths.length==0) {
     paths.push("./");
 }
 
-function listPretty(isPrependSpace) {
+function listPretty(isPrependSpace, path) {
     return function (filename) {
         const [dir, ext] = process.env.LS_COLORS.replace(":*", "\n").split("\n");
         const dirs = Object.fromEntries(new URLSearchParams(dir.replaceAll("=", "=\x1b[").replaceAll(":", "m&")+"m"));
         const exts = Object.fromEntries(new URLSearchParams(ext.replaceAll("=", "=\x1b[").replaceAll(":", "m&")));
-        const lstats = fs.lstatSync(filename);
-        const isExist = fs.existsSync(filename);
+        const lstats = fs.lstatSync(path+"/"+filename);
+        const isExist = fs.existsSync(path+"/"+filename);
         let prefix = "";
         let suffix = "";
     
@@ -134,7 +134,7 @@ for (let [i, path] of paths.entries()) {
     if (paths.length>1) {
         process.stdout.write(path+":\n");
     }
-    listTabular(filenames.sort().map(listPretty(isAnySpace)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲)̲ ̲ is a template function name
+    listTabular(filenames.sort().map(listPretty(isAnySpace, path)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
     if (i<paths.length-1) {
         process.stdout.write("\n");
     }
