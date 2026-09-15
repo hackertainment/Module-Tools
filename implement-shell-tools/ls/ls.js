@@ -88,6 +88,8 @@ function toLink(path, symlink) {
     return filepath;
 }
 
+// https://askubuntu.com/a/884513
+// https://talyian.github.io/ansicolors/
 function toColor(filepath, isCheckExt) {
     const lstats = fs.lstatSync(filepath);
     const isExist = fs.existsSync(filepath);
@@ -194,6 +196,8 @@ function listPretty(isPrependSpace, path) {
     }
 }
 
+// https://stackoverflow.com/a/50841264
+// https://www.unix.com/man-page/opensolaris/1/ls/
 function toCharflag(mode) {
     let ftype = " ";
     let owner = "---";
