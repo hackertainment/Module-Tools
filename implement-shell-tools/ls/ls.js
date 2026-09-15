@@ -36,6 +36,7 @@ program
     .description("List information about the FILEs (the current directory by default).\nSort entries alphabetically if none of -cftuvSUX nor --sort is specified.")
     .option("-a, --all", "do not ignore entries starting with .")
     .option("-l", "use a long listing format")
+    .option("-1", "list one file per line.  Avoid '\\n' with -q or -b")
     .helpOption("--help", "display this help and exit")
     .version(TOOL_VERSION, "--version", "output version information and exit")
     .addHelpText("after", TOOL_CAVEAT)
@@ -45,6 +46,7 @@ program
 const paths = program.args.sort();
 const isAll = program.opts().all;
 const isLong = program.opts().l;
+const isSingle = program.opts()["1"];
 
 // commander not correctly specify default value for an optional command-argument
 if (paths.length==0) {
@@ -57,6 +59,22 @@ const EXTS = Object.fromEntries(new URLSearchParams(EXT.replaceAll("=", "=\x1b["
 const RWXS = ["---", "--x", "-w-", "-wx", "r--", "r-x", "rw-", "rwx"];
 const UIDS = initEntries("/etc/passwd");
 const GIDS = initEntries("/etc/group");
+const CHRS = initTerminalInfo()+1;
+
+function initTerminalInfo() {
+    // `ls` uses an environment variable, COLUMNS, to determine the number of character positions available on one output line.
+    // If this variable is not set, the `terminfo(4)` database is used to determine the number of columns, based on the environment variable, TERM.
+    // If this information cannot be obtained, 80 columns are assumed.
+    if (process.env.COLUMNS!==undefined) {
+        return process.env.COLUMNS;
+    }
+    else if (process.stdout.columns!==undefined) {
+        return process.stdout.columns;
+    }
+    else {
+        return 80;
+    }
+}
 
 function initEntries(filepath) {
     let lines = [];
@@ -287,10 +305,14 @@ function listLong(prettyFilenames) {
     }
 }
 
+function listSingle(prettyFilenames) {
+    console.table(prettyFilenames);
+}
+
 // https://stackoverflow.com/a/75575528/8842262
 // https://mmzeynalli.dev/posts/reinvent/ls/part5/#3-tabular
 function calColConfig(filenames, numSpace) {
-    let maxNumCol = Math.floor(81/3);  // filename minimum 1 char + 2 spaces = 3
+    let maxNumCol = Math.floor(CHRS/3);  // filename minimum 1 char + 2 spaces = 3
     let maxWidths = [[0]];
     let col = 0;
     let sum = 0;
@@ -324,7 +346,7 @@ function calColConfig(filenames, numSpace) {
         for (let j=0; j<i; j++) {
             sum = sum+maxWidths[i][j];  // sum all max widths
         }
-        if (sum<=81) {
+        if (sum<=CHRS) {
             maxWidths[0][0] = i;  // only largest index of column config will be returned
         }
     }
@@ -374,6 +396,9 @@ for (let [i, path] of paths.entries()) {
     }
     if (isLong) {
         listLong(prettyFilenames);
+    }
+    else if (isSingle) {
+        listSingle(prettyFilenames);
     }
     else {
         listTabular(prettyFilenames, calColConfig(filenames, (isAnySpace ? 1 : 0)));
