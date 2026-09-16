@@ -34,9 +34,9 @@ program
     .name(TOOL_NAME)
     .usage("[OPTION]... [FILE]...")
     .description("List information about the FILEs (the current directory by default).\nSort entries alphabetically if none of -cftuvSUX nor --sort is specified.")
-    .option("-a, --all", "do not ignore entries starting with .")
-    .option("-l", "use a long listing format")
-    .option("-1", "list one file per line.  Avoid '\\n' with -q or -b")
+    .option("-a, --all", "do not ignore entries starting with .", false)
+    .option("-l", "use a long listing format", false)
+    .option("-1", "list one file per line.  Avoid '\\n' with -q or -b", false)
     .helpOption("--help", "display this help and exit")
     .version(TOOL_VERSION, "--version", "output version information and exit")
     .addHelpText("after", TOOL_CAVEAT)
@@ -400,7 +400,7 @@ if (fileArgs.length>0) {
 for (let [j, path] of paths.entries()) {
     let prettyFilenames = [];
     let filenames = (path=="" ? fileArgs : fs.readdirSync(path));
-    let isAnySpace = (isSingle===undefined || !isSingle) && filenames.filter((filename) => filename.includes(" ")).length!=0;
+    let isAnySpace = !isSingle && filenames.filter((filename) => filename.includes(" ")).length!=0;
 
     filenames.sort();
     if (isAll) {
