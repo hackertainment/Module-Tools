@@ -43,7 +43,7 @@ program
     .argument("[FILE...]", null, ["./"])
     .parse();
 
-const paths = program.args.sort();
+const paths = program.args;
 const isAll = program.opts().all;
 const isLong = program.opts().l;
 const isSingle = program.opts()["1"];
@@ -198,7 +198,7 @@ function listPretty(isPrependSpace, path) {
             linkColor = (isExist ? calColorCode(traverseLink(path, filename), !fs.lstatSync(path+"/"+linkTo).isSymbolicLink()) : (DIRS.hasOwnProperty("mi") ? DIRS.mi : DIRS.rs));
         }
 
-        // PRETTY THE FILENAME :-)
+        // PRETTY THE FILENAME
         filename = calColorCode(path+"/"+filename, true)+prefix+filename+suffix+DIRS.rs;
         
         // if long listing format, prepend the file status details (and also append -> for symlink)
@@ -348,8 +348,8 @@ function calColConfig(filenames, numSpace) {
         for (let j=0; j<i; j++) {
             sum = sum+maxWidths[i][j];  // sum all max widths
         }
-        if (sum<=CHRS) {
-            maxWidths[0][0] = i;  // only largest index of column config will be returned
+        if (sum<=CHRS) {  // if sum <= terminal width
+            maxWidths[0][0] = i;  // store the index of such column config
         }
     }
 
@@ -376,10 +376,31 @@ function listTabular(prettyFilenames, padCols) {
 }
 
 DIRS.rs = "\x1b[0m";
-for (let [i, path] of paths.entries()) {
+let fileArgs = [];
+let i = 0;
+while (i<paths.length) {
+    try {
+        if (fs.statSync(paths[i]).isDirectory()) {
+            i++;
+        }
+        else {
+            fileArgs.push(paths.splice(i, 1)[0]);
+        }
+    }
+    catch (error) {
+        console.error(error.message.split(",")[0].replace(/^[A-Z]*:/, `${TOOL_NAME}: cannot access '${paths[i]}':`));
+        paths.splice(i, 1);
+    }
+}
+paths.sort();
+if (fileArgs.length>0) {
+    paths.unshift(" ");
+}
+
+for (let [j, path] of paths.entries()) {
     let prettyFilenames = [];
-    let filenames = fs.readdirSync(path);
-    let isAnySpace = (isSingle!==undefined && !isSingle) && filenames.filter((filename) => filename.includes(" ")).length!=0;
+    let filenames = (path==" " ? fileArgs : fs.readdirSync(path));
+    let isAnySpace = (isSingle===undefined || !isSingle) && filenames.filter((filename) => filename.includes(" ")).length!=0;
 
     filenames.sort();
     if (isAll) {
@@ -392,8 +413,8 @@ for (let [i, path] of paths.entries()) {
         }
     }
 
-    prettyFilenames = filenames.map(listPretty(isAnySpace, path));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
-    if (paths.length>1) {
+    prettyFilenames = filenames.map(listPretty(isAnySpace, (path==" " ? "." : path)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
+    if (paths.length>1 && path!=" ") {
         process.stdout.write(path+":\n");
     }
     if (isLong) {
@@ -405,7 +426,7 @@ for (let [i, path] of paths.entries()) {
     else {
         listTabular(prettyFilenames, calColConfig(filenames, (isAnySpace ? 1 : 0)));
     }
-    if (i<paths.length-1) {
+    if (j<paths.length-1) {
         process.stdout.write("\n");
     }
 }
