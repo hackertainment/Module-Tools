@@ -306,7 +306,9 @@ function listLong(prettyFilenames) {
 }
 
 function listSingle(prettyFilenames) {
-    console.table(prettyFilenames);
+    for (let row of prettyFilenames) {
+        process.stdout.write(row+"\n");
+    }
 }
 
 // https://stackoverflow.com/a/75575528/8842262
@@ -377,7 +379,7 @@ DIRS.rs = "\x1b[0m";
 for (let [i, path] of paths.entries()) {
     let prettyFilenames = [];
     let filenames = fs.readdirSync(path);
-    let isAnySpace = filenames.filter((filename) => filename.includes(" ")).length!=0;
+    let isAnySpace = (isSingle!==undefined && !isSingle) && filenames.filter((filename) => filename.includes(" ")).length!=0;
 
     filenames.sort();
     if (isAll) {
