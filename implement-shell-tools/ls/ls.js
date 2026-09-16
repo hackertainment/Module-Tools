@@ -394,12 +394,12 @@ while (i<paths.length) {
 }
 paths.sort();
 if (fileArgs.length>0) {
-    paths.unshift(" ");
+    paths.unshift("");
 }
 
 for (let [j, path] of paths.entries()) {
     let prettyFilenames = [];
-    let filenames = (path==" " ? fileArgs : fs.readdirSync(path));
+    let filenames = (path=="" ? fileArgs : fs.readdirSync(path));
     let isAnySpace = (isSingle===undefined || !isSingle) && filenames.filter((filename) => filename.includes(" ")).length!=0;
 
     filenames.sort();
@@ -413,8 +413,8 @@ for (let [j, path] of paths.entries()) {
         }
     }
 
-    prettyFilenames = filenames.map(listPretty(isAnySpace, (path==" " ? "." : path)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
-    if (paths.length>1 && path!=" ") {
+    prettyFilenames = filenames.map(listPretty(isAnySpace, (path=="" ? "." : path)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
+    if (paths.length>1 && path!="") {
         process.stdout.write(path+":\n");
     }
     if (isLong) {
