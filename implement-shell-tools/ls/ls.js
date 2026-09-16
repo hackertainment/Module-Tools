@@ -403,7 +403,7 @@ for (let [j, path] of paths.entries()) {
     let isAnySpace = !isSingle && filenames.filter((filename) => filename.includes(" ")).length!=0;
 
     filenames.sort();
-    if (isAll) {
+    if (isAll && path!="") {
         filenames.unshift("..")
         filenames.unshift(".");
     }
