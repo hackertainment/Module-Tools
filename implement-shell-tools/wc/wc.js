@@ -31,67 +31,90 @@ const isWord = (Object.keys(program.opts()).length==0 ? true : (program.opts().w
 
 // commander not correctly specify default value for an optional command-argument
 if (files.length==0) {
-    files.push("-");
+    files.push("");
 }
 
 let counts = {line:0, word:0, char:0, byte:0};
 let totals = {line:0, word:0, char:0, byte:0};
-let pad = 7;
+let padSize = 7;
 let content = "";
 
 // https://dmitripavlutin.com/what-every-javascript-developer-should-know-about-unicode/
-async function countTotal(filename, isSum) {
+async function count(filename) {
     try {
-        content = await fs.readFile(filename, "utf-8");  // TODO: should echo line immediately when pressing enter
+        content = await fs.readFile(filename, "utf-8");
         counts.line = (content.match(/\n/g)==null ? 0 : content.match(/\n/g).length);
         counts.word = (content.match(/\S+/g)==null ? 0 : content.match(/\S+/g).length);
         counts.char = [...content].length;
         counts.byte = Buffer.byteLength(content);
-        if (isSum) {
-            totals.line += counts.line;
-            totals.word += counts.word;
-            totals.char += counts.char;
-            totals.byte += counts.byte;
-        }
     }
     catch (error) {
         throw error;
     }
 }
 
-for (let file of files) {
-    if (file!="-") {
+// prepare padSize when no file is stdin
+if (!files.includes("-") && !files.includes("")) {
+    for (let file of files) {
         try {
-            await countTotal(file, true);
+            await count(file);
+            Object.keys(totals).forEach(key => {totals[key] += counts[key]});  // totals.____ += counts.____
         }
         catch {
             //console.error(error.message.split(",")[0].replace(/^[A-Z]*:/, `${TOOL_NAME}: ${file}:`));
         }
     }
-}
-if (!files.includes("-")) {
-    pad = 0;
-    if (isLine && totals.line.toString().length>pad) {
-        pad = totals.line.toString().length;
+    padSize = 0;
+    if (isLine && totals.line.toString().length>padSize) {
+        padSize = totals.line.toString().length;
     }
-    if (isWord && totals.word.toString().length>pad) {
-        pad = totals.word.toString().length;
+    if (isWord && totals.word.toString().length>padSize) {
+        padSize = totals.word.toString().length;
     }
-    if (isChar && totals.char.toString().length>pad) {
-        pad = totals.char.toString().length;
+    if (isChar && totals.char.toString().length>padSize) {
+        padSize = totals.char.toString().length;
     }
-    if (isByte && totals.byte.toString().length>pad) {
-        pad = totals.byte.toString().length;
+    if (isByte && totals.byte.toString().length>padSize) {
+        padSize = totals.byte.toString().length;
     }
+    Object.keys(totals).forEach(key => {totals[key] = 0});  // totals.____ = 0
 }
 
+// count and print each file including stdin
 for (let file of files) {
     try {
-        await countTotal((file=="-" ? "/dev/stdin" : file), false);
-console.log(counts, file);
+        await count((file=="-" || file=="") ? "/dev/stdin" : file);
+        Object.keys(totals).forEach(key => {totals[key] += counts[key]});  // totals.____ += counts.____
+        if (isLine) {
+            process.stdout.write(counts.line.toString().padStart(padSize, " ")+ " ");
+        }
+        if (isWord) {
+            process.stdout.write(counts.word.toString().padStart(padSize, " ")+ " ");
+        }
+        if (isChar) {
+            process.stdout.write(counts.char.toString().padStart(padSize, " ")+ " ");
+        }
+        if (isByte) {
+            process.stdout.write(counts.byte.toString().padStart(padSize, " ")+ " ");
+        }
+        process.stdout.write(file+"\n");
     }
     catch (error) {
         console.error(error.message.split(",")[0].replace(/^[A-Z]*:/, `${TOOL_NAME}: ${file}:`));
     }
 }
-console.log(totals, "total");
+if (files.length>1) {
+    if (isLine) {
+        process.stdout.write(totals.line.toString().padStart(padSize, " ")+ " ");
+    }
+    if (isWord) {
+        process.stdout.write(totals.word.toString().padStart(padSize, " ")+ " ");
+    }
+    if (isChar) {
+        process.stdout.write(totals.char.toString().padStart(padSize, " ")+ " ");
+    }
+    if (isByte) {
+        process.stdout.write(totals.byte.toString().padStart(padSize, " ")+ " ");
+    }
+    process.stdout.write("total\n");
+}
