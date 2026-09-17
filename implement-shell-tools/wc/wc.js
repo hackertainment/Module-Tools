@@ -36,7 +36,7 @@ if (files.length==0) {
 
 let counts = {line:0, word:0, char:0, byte:0};
 let totals = {line:0, word:0, char:0, byte:0};
-let padSize = 7;
+let padSize = 7;  // default padding size when any file is stdin
 let content = "";
 
 // https://dmitripavlutin.com/what-every-javascript-developer-should-know-about-unicode/
@@ -53,7 +53,7 @@ async function count(filename) {
     }
 }
 
-// prepare padSize when no file is stdin
+// prepare padding size when no file is stdin
 if (!files.includes("-") && !files.includes("")) {
     for (let file of files) {
         try {
