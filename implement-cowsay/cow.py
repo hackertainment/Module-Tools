@@ -1,3 +1,5 @@
+#!/home/ec2-user/CYF/implement-shell-tools/.venv/bin/python3
+
 import cowsay
 import argparse
 
