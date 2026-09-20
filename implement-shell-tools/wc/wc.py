@@ -1,6 +1,9 @@
-import argparse
+#!/usr/bin/python3
 
-TOOL_NAME = "wc"
+import argparse
+import sys
+
+TOOL_NAME = sys.argv[0].rsplit("/", 1)[1]
 TOOL_AUTHOR = "Wyatt L."
 TOOL_VERSION = "%s (CYF shelltools) 1.00\n\nWritten by %s" % (TOOL_NAME, TOOL_AUTHOR)
 TOOL_CAVEAT = ""
