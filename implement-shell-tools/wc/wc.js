@@ -20,7 +20,7 @@ program
     .helpOption("--help", "display this help and exit")
     .version(TOOL_VERSION, "--version", "output version information and exit")
     .addHelpText("after", TOOL_CAVEAT)
-    .argument("[FILE...]", null, ["-"])
+    .argument("[FILE...]", null, [""])
     .parse();
 
 const files = program.args;
