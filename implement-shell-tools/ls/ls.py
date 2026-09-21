@@ -31,7 +31,7 @@ Exit status:
 
 parser = argparse.ArgumentParser(
     prog=TOOL_NAME,
-    usage="[OPTION]... [FILE]...",
+    usage="%s [OPTION]... [FILE]..." % (TOOL_NAME),
     description='''
 List information about the FILEs (the current directory by default).
 Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.
@@ -48,5 +48,9 @@ parser.add_argument("--version", action="version", help="output version informat
 parser.add_argument("FILE", nargs="*", default=["./"])
 args = parser.parse_args()
 
-files = args.FILE
+paths = args.FILE
+is_all = args.all
+is_long = args.long
+is_single = args.single
+
 print(args)
