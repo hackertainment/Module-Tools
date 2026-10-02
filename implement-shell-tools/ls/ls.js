@@ -376,6 +376,7 @@ function listTabular(prettyFilenames, padCols) {
 }
 
 DIRS.rs = "\x1b[0m";
+// separate files from directories (by storing filenames under an imaginary directory ""), and sort the directory names
 let fileArgs = [];
 let i = 0;
 while (i<paths.length) {
@@ -397,6 +398,7 @@ if (fileArgs.length>0) {
     paths.unshift("");
 }
 
+// list filenames for each directory
 for (let [j, path] of paths.entries()) {
     let prettyFilenames = [];
     let filenames = (path=="" ? fileArgs : fs.readdirSync(path));
