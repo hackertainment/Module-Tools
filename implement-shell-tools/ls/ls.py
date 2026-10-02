@@ -54,22 +54,38 @@ is_all = args.all
 is_long = args.long
 is_single = args.single
 
-# separate files from directories (by storing filenames under an imaginary directory ""), and sort the directory names
+# separate files from dirs (by storing filenames under an imaginary directory ""), and sort the directory names
 fileArgs = []
 i = 0
 while i<len(paths):
     if os.path.isdir(paths[i]):
         i += 1
-    elif os.path.exists(paths[i]):
+    elif os.path.lexists(paths[i]):
         fileArgs.append(paths.pop(i))
     else:
-        print(TOOL_NAME+": cannot access '"+paths[i]+"': No such file or directory")
-        paths.pop(i)
+        print(TOOL_NAME+": cannot access '"+paths.pop(i)+"': No such file or directory")
 paths.sort()
 if len(fileArgs)>0:
     paths.insert(0, "")
 
 # list filenames for each directory
-print(args)
-print(paths)
-print(fileArgs)
+for j, path in enumerate(paths):
+    filenames = os.listdir(path) if path!="" else fileArgs
+    leading_space = ""
+
+    # sort filenames and process the inclusion/exclusion of hidden files
+    filenames.sort()
+    if path!="":
+        if is_all:
+            filenames.insert(0, "..")
+            filenames.insert(0, ".")
+        else:
+            while len(filenames)>0 and filenames[0].startswith("."):
+                filenames.pop(0)
+
+    # print filenames based on options
+    if len(paths)>1 and path!="":
+        print(path+":")
+    print(filenames)
+    if j<(len(paths)-1):
+        print()
