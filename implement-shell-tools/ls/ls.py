@@ -2,6 +2,7 @@
 
 import os
 import stat
+import math
 import re
 import argparse
 import sys
@@ -55,12 +56,24 @@ is_all = args.all
 is_long = args.long
 is_single = args.single
 
+def init_terminal_info():
+    # `ls` uses an environment variable, COLUMNS, to determine the number of character positions available on one output line.
+    # If this variable is not set, the `terminfo(4)` database is used to determine the number of columns, based on the environment variable, TERM.
+    # If this information cannot be obtained, 80 columns are assumed.
+    if "COLUMNS" in os.environ:
+        return os.environ["COLUMNS"]
+    try:
+        return os.get_terminal_size().columns
+    except OSError as error:
+        return 80
+
 DIR, EXT = os.environ["LS_COLORS"].replace(":*", "\n", 1).split("\n")
 DIRS = dict((dir.split("=")[0],"\x1b["+dir.split("=")[1]+"m") for dir in (DIR.split(":")))
 EXTS = dict((ext.split("=")[0],"\x1b["+ext.split("=")[1]+"m") for ext in (EXT[:-1].split(":")))
+CHRS = init_terminal_info()+1
 
-# add ANSI color code (and single quotes too if filename has space) to filenames
-def list_pretty(path, filename, leading_space):
+# add ANSI color code (and maybe leading space or single quotes) to a filename
+def format_pretty(path, filename, is_leading_space):
     filepath = os.path.join(path, filename)
     lstats = os.lstat(filepath)
     is_exist = os.path.exists(filepath)
@@ -125,11 +138,78 @@ def list_pretty(path, filename, leading_space):
     #    }
     #}
 
-    return ansi_color+filename+DIRS["rs"] if " " not in filename else ansi_color+"'"+filename+"'"+DIRS["rs"]
+    if " " in filename:
+        filename = ansi_color+"'"+filename+"'"+DIRS["rs"]
+    elif is_leading_space:
+        filename = " "+ansi_color+filename+DIRS["rs"]
+    else:
+        filename = ansi_color+filename+DIRS["rs"]
+
+    return filename
 
 def list_single(path, filenames):
     for row in filenames:
-        print(list_pretty(path, row, ""))
+        print(format_pretty(path, row, False))
+
+#def
+
+def list_long(path, filenames, is_leading_space):
+            print(filenames)
+
+# https://stackoverflow.com/a/75575528/8842262
+# https://mmzeynalli.dev/posts/reinvent/ls/part5/#3-tabular
+def cal_col_config(filenames, num_space):
+    max_num_col = math.floor(CHRS/3)  # filename minimum 1 char + 2 spaces = 3
+    max_widths = [[0]]
+    col = 0
+    sum = 0
+    widths = []
+
+    for j in range(len(filenames)):
+        widths.append(len(filenames[j])+(2+2 if " " in filenames[j] else num_space+2))
+
+    #     num_col   [   0     ,    1     ,    2     , ...]
+    #        0    =    [?]
+    #        1    = [max_width]
+    #        2    = [max_width, max_width]
+    #        3    = [max_width, max_width, max_width]
+    #        :    = [ ...
+    # max_num_col = [ ...
+    max_num_col = len(filenames) if len(filenames)<=max_num_col else max_num_col
+    for i in range(1, max_num_col+1):  # for each column config
+        max_widths.append([3]*i)  # init config as an array of three(3)s
+    for i in range(1, max_num_col+1):  # for each column config
+        for j in range(len(widths)):
+            col = math.floor(j/(math.ceil(len(widths)/i)))
+            if widths[j]>max_widths[i][col]:  # if width > max width in that column
+                max_widths[i][col] = widths[j]  # then update max width in that column
+    for i in range(1, max_num_col+1):  # for each column config
+        sum = 0
+        for j in range(i):
+            sum = sum+max_widths[i][j];  # sum all max widths
+        if sum<=CHRS:  # if sum <= terminal width
+            max_widths[0][0] = i  # store the index of such column config
+
+    return max_widths[max_widths[0][0]];  # return the largest possible column config
+
+def list_tabular(path, filenames, is_leading_space, pad_cols):
+    num_pad = 0
+    num_row = math.ceil(len(filenames)/len(pad_cols))
+    row = ""
+    index = None  # calculated index of filenames[]
+
+    for i in range(num_row):  # for each row
+        row = ""
+        for j in range(len(pad_cols)):  # for each col
+            index = i+num_row*j  # pick the (i+numRow*j)'th file from array for printing
+            if index<len(filenames):
+                num_pad = pad_cols[j]-len(filenames[index])
+                if " " in filenames[index]:
+                    num_pad = num_pad-2
+                elif is_leading_space:
+                    num_pad = num_pad-1
+                row = row+format_pretty(path, filenames[index], is_leading_space)+(" "*num_pad)
+        print(row.rstrip())
 
 # separate files from dirs (by storing filenames under an imaginary directory ""), and sort the directory names
 fileArgs = []
@@ -161,16 +241,14 @@ for j, path in enumerate(paths):
                 filenames.pop(0)
     is_leading_space = any(" " in filename for filename in filenames)
 
-    # print filenames based on options
+    # print filenames based on command line options
     if len(paths)>1 and path!="":
         print(path+":")
     if is_long:
-        print(filenames)
+        list_long(path, filenames, is_leading_space)
     elif is_single:
         list_single(path, filenames)
     else:
-        #column_config = cal_col_config(filenames, leading_space)
-        #list_tabular(filenames, leading_space, column_config)
-        print(filenames)
+        list_tabular(path, filenames, is_leading_space, cal_col_config(filenames, 1 if is_leading_space else 0))
     if j<(len(paths)-1):
         print()
