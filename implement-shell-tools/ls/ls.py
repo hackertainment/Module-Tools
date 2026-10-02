@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import os
+import stat
 import re
 import argparse
 import sys
@@ -54,6 +55,82 @@ is_all = args.all
 is_long = args.long
 is_single = args.single
 
+DIR, EXT = os.environ["LS_COLORS"].replace(":*", "\n", 1).split("\n")
+DIRS = dict((dir.split("=")[0],"\x1b["+dir.split("=")[1]+"m") for dir in (DIR.split(":")))
+EXTS = dict((ext.split("=")[0],"\x1b["+ext.split("=")[1]+"m") for ext in (EXT[:-1].split(":")))
+
+# add ANSI color code (and single quotes too if filename has space) to filenames
+def list_pretty(path, filename, leading_space):
+    filepath = os.path.join(path, filename)
+    lstats = os.lstat(filepath)
+    is_exist = os.path.exists(filepath)
+    #link_to = "";
+    #let linkColor = DIRS.rs;
+    #prefix = "";
+    #suffix = "";
+
+    # if the file is a symlink, color the files they point to
+    #if (isLong && lstats.isSymbolicLink()) {
+    #    linkTo = fs.readlinkSync(path+"/"+filename);
+    #    linkColor = (isExist ? calColorCode(traverseLink(path, filename), !fs.lstatSync(path+"/"+linkTo).isSymbolicLink()) : (DIRS.hasOwnProperty("mi") ? DIRS.mi : DIRS.rs));
+    #}
+
+    ansi_color = DIRS["rs"]
+
+    if stat.S_ISDIR(lstats.st_mode) and (lstats.st_mode&0o1000)!=0 and (lstats.st_mode&0o0002)!=0:  # sticky other-writable directory (+t,o+w)
+        ansi_color = DIRS["tw"] if "tw" in DIRS else DIRS["rs"]
+    elif stat.S_ISDIR(lstats.st_mode) and (lstats.st_mode&0o0002)!=0:  # other-writable directory (o+w)
+        ansi_color = DIRS["ow"] if "ow" in DIRS else DIRS["rs"]
+    elif stat.S_ISDIR(lstats.st_mode) and (lstats.st_mode&0o1000)!=0:  # sticky directory (+t)
+        ansi_color = DIRS["st"] if "st" in DIRS else DIRS["rs"]
+    elif stat.S_ISDIR(lstats.st_mode):  # directory
+        ansi_color = DIRS["di"] if "di" in DIRS else DIRS["rs"]
+    elif stat.S_ISLNK(lstats.st_mode) and is_exist:  # symbolic link
+        ansi_color = DIRS["ln"] if "ln" in DIRS else DIRS["rs"]
+    elif stat.S_ISLNK(lstats.st_mode) and not is_exist:  # orphan symlink -> missing file
+        ansi_color = DIRS["or"] if "or" in DIRS else DIRS["rs"]  # -> ansi_color = DIRS["mi"] if "mi" in DIRS else DIRS["rs"]
+    elif stat.S_ISFIFO(lstats.st_mode):  # FIFO (named pipe)
+        ansi_color = DIRS["pi"] if "pi" in DIRS else DIRS["rs"]
+    elif stat.S_ISSOCK(lstats.st_mode):  # socket
+        ansi_color = DIRS["so"] if "so" in DIRS else DIRS["rs"]
+    elif stat.S_ISDOOR(lstats.st_mode):  # door (Solaris 2.5 and later)
+        ansi_color = DIRS["du"] if "du" in DIRS else DIRS["rs"]
+    elif stat.S_ISBLK(lstats.st_mode):  # block device
+        ansi_color = DIRS["bd"] if "bd" in DIRS else DIRS["rs"]
+    elif stat.S_ISCHR(lstats.st_mode):  # character device
+        ansi_color = DIRS["cd"] if "cd" in DIRS else DIRS["rs"]
+    elif stat.S_ISREG(lstats.st_mode) and (lstats.st_mode&0o4000)!=0:  # set user id (u+s)
+        ansi_color = DIRS["su"] if "su" in DIRS else DIRS["rs"]
+    elif stat.S_ISREG(lstats.st_mode) and (lstats.st_mode&0o2000)!=0:  # set group id (g+s)
+        ansi_color = DIRS["sg"] if "sg" in DIRS else DIRS["rs"]
+    #elif stat.S_ISREG(lstats) and ???) {  # TODO: file with capability
+    #    ansi_color = DIRS["ca"] if "ca" in DIRS else DIRS["rs"]
+    elif stat.S_ISREG(lstats.st_mode) and (lstats.st_mode&0o0111)!=0:  # executable file
+        ansi_color = DIRS["ex"] if "ex" in DIRS else DIRS["rs"]
+    elif stat.S_ISREG(lstats.st_mode) and ("*"+os.path.splitext(filepath)[1] in EXTS): ############### and isCheckExt) {
+        ansi_color = EXTS["*"+os.path.splitext(filepath)[1]]
+    elif stat.S_ISREG(lstats.st_mode) and lstats.st_nlink>1:  # multi-hardlink
+        ansi_color = DIRS["mh"] if "mh" in DIRS else DIRS["rs"]
+    elif stat.S_ISREG(lstats.st_mode):  # regular file
+        ansi_color = DIRS["fi"] if "fi" in DIRS else DIRS["rs"]
+    else:  # normal (non-filename) text
+        ansi_color = DIRS["no"] if "no" in DIRS else DIRS["rs"]
+
+    #// if long listing format, prepend the file status details (and also append -> for symlink)
+    #if (isLong) {
+    #    filename = `${lstats.blocks}\t${lstats.mode}\t${lstats.nlink}\t${lstats.uid}\t${lstats.gid}\t${lstats.size}\t${lstats.mtime}\t${filename}`;
+    #    if (lstats.isSymbolicLink()) {
+    #        linkTo = (linkTo.includes(" ") ? "'" : "")+linkTo+(linkTo.includes(" ") ? "'" : "");
+    #        filename = filename+" -> "+linkColor+linkTo+DIRS.rs;
+    #    }
+    #}
+
+    return ansi_color+filename+DIRS["rs"] if " " not in filename else ansi_color+"'"+filename+"'"+DIRS["rs"]
+
+def list_single(path, filenames):
+    for row in filenames:
+        print(list_pretty(path, row, ""))
+
 # separate files from dirs (by storing filenames under an imaginary directory ""), and sort the directory names
 fileArgs = []
 i = 0
@@ -71,9 +148,9 @@ if len(fileArgs)>0:
 # list filenames for each directory
 for j, path in enumerate(paths):
     filenames = os.listdir(path) if path!="" else fileArgs
-    leading_space = ""
+    is_leading_space = False
 
-    # sort filenames and process the inclusion/exclusion of hidden files
+    # sort filenames, include/exclude hidden files, and set flag when any filename has space
     filenames.sort()
     if path!="":
         if is_all:
@@ -82,10 +159,18 @@ for j, path in enumerate(paths):
         else:
             while len(filenames)>0 and filenames[0].startswith("."):
                 filenames.pop(0)
+    is_leading_space = any(" " in filename for filename in filenames)
 
     # print filenames based on options
     if len(paths)>1 and path!="":
         print(path+":")
-    print(filenames)
+    if is_long:
+        print(filenames)
+    elif is_single:
+        list_single(path, filenames)
+    else:
+        #column_config = cal_col_config(filenames, leading_space)
+        #list_tabular(filenames, leading_space, column_config)
+        print(filenames)
     if j<(len(paths)-1):
         print()
