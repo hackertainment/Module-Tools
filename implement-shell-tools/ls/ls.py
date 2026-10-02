@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import os
 import re
 import argparse
 import sys
@@ -53,4 +54,22 @@ is_all = args.all
 is_long = args.long
 is_single = args.single
 
+# separate files from directories (by storing filenames under an imaginary directory ""), and sort the directory names
+fileArgs = []
+i = 0
+while i<len(paths):
+    if os.path.isdir(paths[i]):
+        i += 1
+    elif os.path.exists(paths[i]):
+        fileArgs.append(paths.pop(i))
+    else:
+        print(TOOL_NAME+": cannot access '"+paths[i]+"': No such file or directory")
+        paths.pop(i)
+paths.sort()
+if len(fileArgs)>0:
+    paths.insert(0, "")
+
+# list filenames for each directory
 print(args)
+print(paths)
+print(fileArgs)
