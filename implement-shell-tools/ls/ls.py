@@ -3,6 +3,7 @@
 import os
 import stat
 import math
+import datetime
 import re
 import argparse
 import sys
@@ -22,7 +23,7 @@ TIME_STYLE prefixed with 'posix-' takes effect only outside the POSIX locale.
 Also the TIME_STYLE environment variable sets the default style to use.
 
 Using color to distinguish file types is disabled both by default and
-with --color=never.  With --color=auto, ${TOOL_NAME} emits color codes only when
+with --color=never.  With --color=auto, '''+TOOL_NAME+''' emits color codes only when
 standard output is connected to a terminal.  The LS_COLORS environment
 variable can change the settings.  Use the dircolors command to set it.
 
@@ -67,30 +68,37 @@ def init_terminal_info():
     except OSError as error:
         return 80
 
+def init_entries(filepath):
+    lines = []
+    fields = []
+    ids = {}
+
+    with open(filepath, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if line.strip()!="" and line.strip()[0]!="#":
+                fields = line.strip().split(":")
+                ids[str(fields[2])] = fields[0]
+
+    return ids
+
 DIR, EXT = os.environ["LS_COLORS"].replace(":*", "\n", 1).split("\n")
 DIRS = dict((dir.split("=")[0],"\x1b["+dir.split("=")[1]+"m") for dir in (DIR.split(":")))
 EXTS = dict((ext.split("=")[0],"\x1b["+ext.split("=")[1]+"m") for ext in (EXT[:-1].split(":")))
+UIDS = init_entries("/etc/passwd")
+GIDS = init_entries("/etc/group")
 CHRS = init_terminal_info()+1
 
 # add ANSI color code (and maybe leading space or single quotes) to a filename
-def format_pretty(path, filename, is_leading_space):
+def format_pretty(path, filename, is_leading_space, is_linked_file, is_check_ext):
     filepath = os.path.join(path, filename)
-    lstats = os.lstat(filepath)
     is_exist = os.path.exists(filepath)
-    #link_to = "";
-    #let linkColor = DIRS.rs;
-    #prefix = "";
-    #suffix = "";
-
-    # if the file is a symlink, color the files they point to
-    #if (isLong && lstats.isSymbolicLink()) {
-    #    linkTo = fs.readlinkSync(path+"/"+filename);
-    #    linkColor = (isExist ? calColorCode(traverseLink(path, filename), !fs.lstatSync(path+"/"+linkTo).isSymbolicLink()) : (DIRS.hasOwnProperty("mi") ? DIRS.mi : DIRS.rs));
-    #}
-
+    lstats = os.lstat(filepath) if is_exist or not is_linked_file else None
     ansi_color = DIRS["rs"]
 
-    if stat.S_ISDIR(lstats.st_mode) and (lstats.st_mode&0o1000)!=0 and (lstats.st_mode&0o0002)!=0:  # sticky other-writable directory (+t,o+w)
+    if lstats is None:
+        ansi_color = DIRS["mi"] if "mi" in DIRS else DIRS["rs"]
+    elif stat.S_ISDIR(lstats.st_mode) and (lstats.st_mode&0o1000)!=0 and (lstats.st_mode&0o0002)!=0:  # sticky other-writable directory (+t,o+w)
         ansi_color = DIRS["tw"] if "tw" in DIRS else DIRS["rs"]
     elif stat.S_ISDIR(lstats.st_mode) and (lstats.st_mode&0o0002)!=0:  # other-writable directory (o+w)
         ansi_color = DIRS["ow"] if "ow" in DIRS else DIRS["rs"]
@@ -120,7 +128,7 @@ def format_pretty(path, filename, is_leading_space):
     #    ansi_color = DIRS["ca"] if "ca" in DIRS else DIRS["rs"]
     elif stat.S_ISREG(lstats.st_mode) and (lstats.st_mode&0o0111)!=0:  # executable file
         ansi_color = DIRS["ex"] if "ex" in DIRS else DIRS["rs"]
-    elif stat.S_ISREG(lstats.st_mode) and ("*"+os.path.splitext(filepath)[1] in EXTS): ############### and isCheckExt) {
+    elif stat.S_ISREG(lstats.st_mode) and ("*"+os.path.splitext(filepath)[1] in EXTS) and is_check_ext:
         ansi_color = EXTS["*"+os.path.splitext(filepath)[1]]
     elif stat.S_ISREG(lstats.st_mode) and lstats.st_nlink>1:  # multi-hardlink
         ansi_color = DIRS["mh"] if "mh" in DIRS else DIRS["rs"]
@@ -128,15 +136,6 @@ def format_pretty(path, filename, is_leading_space):
         ansi_color = DIRS["fi"] if "fi" in DIRS else DIRS["rs"]
     else:  # normal (non-filename) text
         ansi_color = DIRS["no"] if "no" in DIRS else DIRS["rs"]
-
-    #// if long listing format, prepend the file status details (and also append -> for symlink)
-    #if (isLong) {
-    #    filename = `${lstats.blocks}\t${lstats.mode}\t${lstats.nlink}\t${lstats.uid}\t${lstats.gid}\t${lstats.size}\t${lstats.mtime}\t${filename}`;
-    #    if (lstats.isSymbolicLink()) {
-    #        linkTo = (linkTo.includes(" ") ? "'" : "")+linkTo+(linkTo.includes(" ") ? "'" : "");
-    #        filename = filename+" -> "+linkColor+linkTo+DIRS.rs;
-    #    }
-    #}
 
     if " " in filename:
         filename = ansi_color+"'"+filename+"'"+DIRS["rs"]
@@ -149,12 +148,73 @@ def format_pretty(path, filename, is_leading_space):
 
 def list_single(path, filenames):
     for row in filenames:
-        print(format_pretty(path, row, False))
+        print(format_pretty(path, row, False, False, True))
 
-#def
+def traverse_link(path, symlink):
+    filepath = os.path.join(path, symlink)
+
+    if os.path.islink(filepath):
+        if "/" in symlink:
+            path = os.path.dirname(filepath)
+        symlink = os.readlink(filepath)
+        filepath = traverse_link(path, symlink)
+
+    return filepath
 
 def list_long(path, filenames, is_leading_space):
-            print(filenames)
+    filepath = None
+    lstats = None
+    rows = []
+    cols = []
+    total_block = 0
+    max_nlink = 0
+    max_ulength = 0
+    max_glength = 0
+    max_size = 0
+    length = 0
+
+    # calculate width of columns
+    for i, filename in enumerate(filenames):
+        filepath = os.path.join(path, filename)
+        lstats = os.lstat(filepath)
+
+        rows.append(str(lstats.st_blocks)+"\t"+str(lstats.st_mode)+"\t"+str(lstats.st_nlink)+"\t"+str(lstats.st_uid)+"\t"+str(lstats.st_gid)+"\t"+str(lstats.st_size)+"\t"+str(lstats.st_mtime)+"\t")
+        if stat.S_ISLNK(lstats.st_mode):
+            rows[i] = rows[i]+os.readlink(filepath)
+        total_block = total_block+lstats.st_blocks
+        max_nlink = lstats.st_nlink if lstats.st_nlink>max_nlink else max_nlink
+        length = len(UIDS[str(lstats.st_uid)])
+        max_ulength = length if length>max_ulength else max_ulength
+        length = len(GIDS[str(lstats.st_gid)])
+        max_glength = length if length>max_glength else max_glength
+        max_size = lstats.st_size if lstats.st_size>max_size else max_size
+
+    # https://unix.stackexchange.com/questions/28780/file-block-size-difference-between-stat-and-ls
+    # linux `stat` struct stat {... blkcnt_t  st_blocks; ...} indicates *number of 512B blocks allocated*
+    # but `ls` #define DEFAULT_BLOCK_SIZE 1024 *Byte*
+    # so for example 9-10 blocks in `stat` would just be 5 blocks in `ls`
+    print("total", math.ceil(total_block/2))
+    for j, row in enumerate(rows):
+        cols = row.split("\t")
+        print(stat.filemode(int(cols[1]))+".", end=" ")
+        print(("%"+str(len(str(max_nlink)))+"s") % cols[2], end=" ")
+        print(("%"+str(max_ulength)+"s") % UIDS[cols[3]], end=" ")
+        print(("%"+str(max_glength)+"s") % GIDS[cols[4]], end=" ")
+        print(("%"+str(len(str(max_size)))+"s") % cols[5], end=" ")
+        print(datetime.datetime.fromtimestamp(float(cols[6])).strftime("%b\t%d %H:%M").replace("\t0", "  ").replace("\t", " "), end=" ")
+        print(format_pretty(path, filenames[j], is_leading_space, False, True), end="")
+        if cols[7]!="":
+            if os.path.islink(os.path.join(path, cols[7])):
+                # traverse the link to determine color (except ext) first and replace display text by cols[7] afterwards
+                linked_to = traverse_link(path, filenames[j])
+                linked_color = format_pretty(path, linked_to, False, True, False)
+                linked_to = "'"+linked_to+"'" if " " in linked_to else linked_to
+                linked_color = linked_color.replace(linked_to, cols[7])
+                print(" ->"+linked_color if linked_color[0]==" " else " -> "+linked_color, end="")
+            else:
+                cols[7] = format_pretty(path, cols[7], is_leading_space, True, True)
+                print(" ->"+cols[7] if cols[7][0]==" " else " -> "+cols[7], end="")
+        print()
 
 # https://stackoverflow.com/a/75575528/8842262
 # https://mmzeynalli.dev/posts/reinvent/ls/part5/#3-tabular
@@ -208,7 +268,7 @@ def list_tabular(path, filenames, is_leading_space, pad_cols):
                     num_pad = num_pad-2
                 elif is_leading_space:
                     num_pad = num_pad-1
-                row = row+format_pretty(path, filenames[index], is_leading_space)+(" "*num_pad)
+                row = row+format_pretty(path, filenames[index], is_leading_space, False, True)+(" "*num_pad)
         print(row.rstrip())
 
 # separate files from dirs (by storing filenames under an imaginary directory ""), and sort the directory names
