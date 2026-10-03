@@ -34,8 +34,8 @@ if (files.length==0) {
     files.push("-");
 }
 
-let isAppend = false;
-let count = 1;
+let isNewline = true;
+let count = 0;
 
 for (let file of files) {
     try {
@@ -44,19 +44,19 @@ for (let file of files) {
         let i = 0;
 
         while (i<lines.length-1) {
-            if ((isNumber || (isNonblank && lines[i]!="")) && !isAppend) {
+            if ((isNumber || (isNonblank && lines[i]!="")) && isNewline) {
                 process.stdout.write((++count).toString().padStart(6, " ")+"  ");
             }
             process.stdout.write(lines[i]+"\n");
-            isAppend = false;
+            isNewline = true;
             i++;
         }
 
         // handle special case when file without trailing \n
-        //if ((isNumber || (isNonblank && lines[i]!="")) && lines[i]!="" && !isAppend) {
-        if ((isNumber || isNonblank) && lines[i]!="" && !isAppend) {
+        //if ((isNumber || (isNonblank && lines[i]!="")) && lines[i]!="" && isNewline) {
+        if ((isNumber || isNonblank) && lines[i]!="" && isNewline) {
             process.stdout.write((++count).toString().padStart(6, " ")+"  ");
-            isAppend = true;
+            isNewline = false;
         }
         process.stdout.write(lines[i]);
     }
