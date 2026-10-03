@@ -89,14 +89,15 @@ UIDS = init_entries("/etc/passwd")
 GIDS = init_entries("/etc/group")
 CHRS = init_terminal_info()+1
 
-# add ANSI color code (and maybe leading space or single quotes) to a filename
-def format_pretty(path, filename, is_leading_space, is_linked_file, is_check_ext):
+# https://askubuntu.com/a/884513
+# https://talyian.github.io/ansicolors/
+# apply ANSI color code (and maybe leading space or single quotes) to a filename
+def format_pretty(path, filename, is_leading_space, is_check_ext):
     filepath = os.path.join(path, filename)
-    is_exist = os.path.exists(filepath)
-    lstats = os.lstat(filepath) if is_exist or not is_linked_file else None
+    lstats = os.lstat(filepath) if os.path.lexists(filepath) else None
     ansi_color = DIRS["rs"]
 
-    if lstats is None:
+    if lstats is None:  # missing file
         ansi_color = DIRS["mi"] if "mi" in DIRS else DIRS["rs"]
     elif stat.S_ISDIR(lstats.st_mode) and (lstats.st_mode&0o1000)!=0 and (lstats.st_mode&0o0002)!=0:  # sticky other-writable directory (+t,o+w)
         ansi_color = DIRS["tw"] if "tw" in DIRS else DIRS["rs"]
@@ -106,9 +107,9 @@ def format_pretty(path, filename, is_leading_space, is_linked_file, is_check_ext
         ansi_color = DIRS["st"] if "st" in DIRS else DIRS["rs"]
     elif stat.S_ISDIR(lstats.st_mode):  # directory
         ansi_color = DIRS["di"] if "di" in DIRS else DIRS["rs"]
-    elif stat.S_ISLNK(lstats.st_mode) and is_exist:  # symbolic link
+    elif stat.S_ISLNK(lstats.st_mode) and os.path.exists(filepath):  # symbolic link
         ansi_color = DIRS["ln"] if "ln" in DIRS else DIRS["rs"]
-    elif stat.S_ISLNK(lstats.st_mode) and not is_exist:  # orphan symlink -> missing file
+    elif stat.S_ISLNK(lstats.st_mode) and not os.path.exists(filepath):  # orphan symlink -> missing file
         ansi_color = DIRS["or"] if "or" in DIRS else DIRS["rs"]  # -> ansi_color = DIRS["mi"] if "mi" in DIRS else DIRS["rs"]
     elif stat.S_ISFIFO(lstats.st_mode):  # FIFO (named pipe)
         ansi_color = DIRS["pi"] if "pi" in DIRS else DIRS["rs"]
@@ -148,7 +149,7 @@ def format_pretty(path, filename, is_leading_space, is_linked_file, is_check_ext
 
 def list_single(path, filenames):
     for row in filenames:
-        print(format_pretty(path, row, False, False, True))
+        print(format_pretty(path, row, False, True))
 
 def traverse_link(path, symlink):
     filepath = os.path.join(path, symlink)
@@ -202,18 +203,17 @@ def list_long(path, filenames, is_leading_space):
         print(("%"+str(max_glength)+"s") % GIDS[cols[4]], end=" ")
         print(("%"+str(len(str(max_size)))+"s") % cols[5], end=" ")
         print(datetime.datetime.fromtimestamp(float(cols[6])).strftime("%b\t%d %H:%M").replace("\t0", "  ").replace("\t", " "), end=" ")
-        print(format_pretty(path, filenames[j], is_leading_space, False, True), end="")
+        print(format_pretty(path, filenames[j], is_leading_space, True), end="")
         if cols[7]!="":
-            if os.path.islink(os.path.join(path, cols[7])):
-                # traverse the link to determine color (except ext) first and replace display text by cols[7] afterwards
+            if os.path.islink(os.path.join(path, cols[7])):  # if it is a link to another symlink
+                # then traverse the link to determine color (except extension check) first, and then replace display text back by cols[7] afterwards
                 linked_to = traverse_link(path, filenames[j])
-                linked_color = format_pretty(path, linked_to, False, True, False)
+                linked_color = format_pretty(path, linked_to, False, False)
                 linked_to = "'"+linked_to+"'" if " " in linked_to else linked_to
-                linked_color = linked_color.replace(linked_to, cols[7])
-                print(" ->"+linked_color if linked_color[0]==" " else " -> "+linked_color, end="")
-            else:
-                cols[7] = format_pretty(path, cols[7], is_leading_space, True, True)
-                print(" ->"+cols[7] if cols[7][0]==" " else " -> "+cols[7], end="")
+                cols[7] = linked_color.replace(linked_to, cols[7])
+            else:  # else it can be a link to file/directory (need extension check) or a link to broken
+                cols[7] = format_pretty(path, cols[7], False, True)
+            print(" -> "+cols[7], end="")
         print()
 
 # https://stackoverflow.com/a/75575528/8842262
@@ -268,10 +268,10 @@ def list_tabular(path, filenames, is_leading_space, pad_cols):
                     num_pad = num_pad-2
                 elif is_leading_space:
                     num_pad = num_pad-1
-                row = row+format_pretty(path, filenames[index], is_leading_space, False, True)+(" "*num_pad)
+                row = row+format_pretty(path, filenames[index], is_leading_space, True)+(" "*num_pad)
         print(row.rstrip())
 
-# separate files from dirs (by storing filenames under an imaginary directory ""), and sort the directory names
+# separate files from directories (by storing filenames under an imaginary directory ""), and sort the directory names
 fileArgs = []
 i = 0
 while i<len(paths):
