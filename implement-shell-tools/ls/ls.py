@@ -151,6 +151,11 @@ def list_single(path, filenames):
     for row in filenames:
         print(format_pretty(path, row, False, True))
 
+# https://stackoverflow.com/a/50841264
+# https://www.unix.com/man-page/opensolaris/1/ls/
+def file_xattr():
+    return "."  # TODO: "@" else "+" else "."
+
 def traverse_link(path, symlink):
     filepath = os.path.join(path, symlink)
 
@@ -166,6 +171,7 @@ def list_long(path, filenames, is_leading_space):
     filepath = None
     lstats = None
     rows = []
+
     cols = []
     total_block = 0
     max_nlink = 0
@@ -174,14 +180,17 @@ def list_long(path, filenames, is_leading_space):
     max_size = 0
     length = 0
 
+    link_to = ""
+    link_color = DIRS["rs"]
+
     # calculate width of columns
     for i, filename in enumerate(filenames):
         filepath = os.path.join(path, filename)
         lstats = os.lstat(filepath)
-
         rows.append(str(lstats.st_blocks)+"\t"+str(lstats.st_mode)+"\t"+str(lstats.st_nlink)+"\t"+str(lstats.st_uid)+"\t"+str(lstats.st_gid)+"\t"+str(lstats.st_size)+"\t"+str(lstats.st_mtime)+"\t")
         if stat.S_ISLNK(lstats.st_mode):
             rows[i] = rows[i]+os.readlink(filepath)
+
         total_block = total_block+lstats.st_blocks
         max_nlink = lstats.st_nlink if lstats.st_nlink>max_nlink else max_nlink
         length = len(UIDS[str(lstats.st_uid)])
@@ -197,7 +206,7 @@ def list_long(path, filenames, is_leading_space):
     print("total", math.ceil(total_block/2))
     for j, row in enumerate(rows):
         cols = row.split("\t")
-        print(stat.filemode(int(cols[1]))+".", end=" ")
+        print(stat.filemode(int(cols[1]))+file_xattr(), end=" ")
         print(("%"+str(len(str(max_nlink)))+"s") % cols[2], end=" ")
         print(("%"+str(max_ulength)+"s") % UIDS[cols[3]], end=" ")
         print(("%"+str(max_glength)+"s") % GIDS[cols[4]], end=" ")
@@ -211,7 +220,7 @@ def list_long(path, filenames, is_leading_space):
                 linked_color = format_pretty(path, linked_to, False, False)
                 linked_to = "'"+linked_to+"'" if " " in linked_to else linked_to
                 cols[7] = linked_color.replace(linked_to, cols[7])
-            else:  # else it can be a link to file/directory (need extension check) or a link to broken
+            else:  # else it can be a direct link to file/directory (need extension check) or a broken link to missing
                 cols[7] = format_pretty(path, cols[7], False, True)
             print(" -> "+cols[7], end="")
         print()
@@ -229,7 +238,7 @@ def config_column(filenames, num_space):
         widths.append(len(filenames[j])+(2+2 if " " in filenames[j] else num_space+2))
 
     #     num_col   [   0     ,    1     ,    2     , ...]
-    #        0    =    [?]
+    #        0    =    ???
     #        1    = [max_width]
     #        2    = [max_width, max_width]
     #        3    = [max_width, max_width, max_width]
@@ -252,7 +261,8 @@ def config_column(filenames, num_space):
 
     return max_widths[max_widths[0][0]];  # return the largest possible column config
 
-def list_tabular(path, filenames, is_leading_space, pad_cols):
+def list_tabular(path, filenames, is_leading_space):
+    pad_cols = config_column(filenames, 1 if is_leading_space else 0)
     num_pad = 0
     num_row = math.ceil(len(filenames)/len(pad_cols))
     row = ""
@@ -309,6 +319,6 @@ for j, path in enumerate(paths):
     elif is_single:
         list_single(path, filenames)
     else:
-        list_tabular(path, filenames, is_leading_space, config_column(filenames, 1 if is_leading_space else 0))
+        list_tabular(path, filenames, is_leading_space)
     if j<(len(paths)-1):
         print()
