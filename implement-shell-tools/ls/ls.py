@@ -92,7 +92,7 @@ CHRS = init_terminal_info()+1
 # https://askubuntu.com/a/884513
 # https://talyian.github.io/ansicolors/
 # apply ANSI color code (and maybe leading space or single quotes) to a filename
-def format_pretty(path, filename, is_leading_space, is_check_ext):
+def format_pretty(path, filename, is_leading_space, ext_override):
     filepath = os.path.join(path, filename)
     lstats = os.lstat(filepath) if os.path.lexists(filepath) else None
     ansi_color = DIRS["rs"]
@@ -129,7 +129,9 @@ def format_pretty(path, filename, is_leading_space, is_check_ext):
     #    ansi_color = DIRS["ca"] if "ca" in DIRS else DIRS["rs"]
     elif stat.S_ISREG(lstats.st_mode) and (lstats.st_mode&0o0111)!=0:  # executable file
         ansi_color = DIRS["ex"] if "ex" in DIRS else DIRS["rs"]
-    elif stat.S_ISREG(lstats.st_mode) and ("*"+os.path.splitext(filepath)[1] in EXTS) and is_check_ext:
+    elif (ext_override is None) and stat.S_ISREG(lstats.st_mode) and ("*"+os.path.splitext(filepath)[1] in EXTS):
+        ansi_color = EXTS["*"+os.path.splitext(filepath)[1]]
+    elif (ext_override is not None) and stat.S_ISREG(lstats.st_mode) and ("*"+os.path.splitext(ext_override)[1] in EXTS):
         ansi_color = EXTS["*"+os.path.splitext(filepath)[1]]
     elif stat.S_ISREG(lstats.st_mode) and lstats.st_nlink>1:  # multi-hardlink
         ansi_color = DIRS["mh"] if "mh" in DIRS else DIRS["rs"]
@@ -149,7 +151,7 @@ def format_pretty(path, filename, is_leading_space, is_check_ext):
 
 def list_single(path, filenames):
     for row in filenames:
-        print(format_pretty(path, row, False, True))
+        print(format_pretty(path, row, False, None))
 
 # https://stackoverflow.com/a/50841264
 # https://www.unix.com/man-page/opensolaris/1/ls/
@@ -212,16 +214,16 @@ def list_long(path, filenames, is_leading_space):
         print(("%"+str(max_glength)+"s") % GIDS[cols[4]], end=" ")
         print(("%"+str(len(str(max_size)))+"s") % cols[5], end=" ")
         print(datetime.datetime.fromtimestamp(float(cols[6])).strftime("%b\t%d %H:%M").replace("\t0", "  ").replace("\t", " "), end=" ")
-        print(format_pretty(path, filenames[j], is_leading_space, True), end="")
+        print(format_pretty(path, filenames[j], is_leading_space, None), end="")
         if cols[7]!="":
             if os.path.islink(os.path.join(path, cols[7])):  # if it is a link to another symlink
                 # then traverse the link to determine color (except extension check) first, and then replace display text back by cols[7] afterwards
                 linked_to = traverse_link(path, filenames[j])
-                linked_color = format_pretty(path, linked_to, False, False)
+                linked_color = format_pretty(path, linked_to, False, cols[7])
                 linked_to = "'"+linked_to+"'" if " " in linked_to else linked_to
                 cols[7] = linked_color.replace(linked_to, cols[7])
             else:  # else it can be a direct link to file/directory (need extension check) or a broken link to missing
-                cols[7] = format_pretty(path, cols[7], False, True)
+                cols[7] = format_pretty(path, cols[7], False, None)
             print(" -> "+cols[7], end="")
         print()
 
@@ -278,7 +280,7 @@ def list_tabular(path, filenames, is_leading_space):
                     num_pad = num_pad-2
                 elif is_leading_space:
                     num_pad = num_pad-1
-                row = row+format_pretty(path, filenames[index], is_leading_space, True)+(" "*num_pad)
+                row = row+format_pretty(path, filenames[index], is_leading_space, None)+(" "*num_pad)
         print(row.rstrip())
 
 # separate files from directories (by storing filenames under an imaginary directory ""), and sort the directory names
