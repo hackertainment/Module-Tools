@@ -92,28 +92,18 @@ function initEntries(filepath) {
     return ids;
 }
 
-function traverseLink(path, symlink) {
-    let filepath = path+"/"+symlink;
-
-    if (fs.lstatSync(filepath).isSymbolicLink()) {
-        if (symlink.includes("/")) {
-            path = path+symlink.slice(0, symlink.lastIndexOf("/")+1);
-        }
-        symlink = fs.readlinkSync(filepath);
-        filepath = traverseLink(path, symlink);
-    }
-
-    return filepath;
-}
-
 // https://askubuntu.com/a/884513
 // https://talyian.github.io/ansicolors/
-function calColorCode(filepath, isCheckExt) {
-    const lstats = fs.lstatSync(filepath);
-    const isExist = fs.existsSync(filepath);
+// apply ANSI color code (and maybe leading space or single quotes) to a filename
+function formatPretty(path, filename, isLeadingSpace, isCheckExt) {
+    let filepath = path+"/"+filename;
+    let lstats = fs.lstatSync(filepath, {throwIfNoEntry:false});
     let ansiColor = DIRS.rs;
 
-    if (lstats.isDirectory() && (lstats.mode&0o1000)!=0 && (lstats.mode&0o0002)!=0) {  // sticky other-writable directory (+t,o+w)
+    if (lstats===undefined) {  // missing file
+        ansiColor = (DIRS.hasOwnProperty("mi") ? DIRS.mi : DIRS.rs);
+    }
+    else if (lstats.isDirectory() && (lstats.mode&0o1000)!=0 && (lstats.mode&0o0002)!=0) {  // sticky other-writable directory (+t,o+w)
         ansiColor = (DIRS.hasOwnProperty("tw") ? DIRS.tw : DIRS.rs);
     }
     else if (lstats.isDirectory() && (lstats.mode&0o0002)!=0) {  // other-writable directory (o+w)
@@ -125,14 +115,11 @@ function calColorCode(filepath, isCheckExt) {
     else if (lstats.isDirectory()) {  // directory
         ansiColor = (DIRS.hasOwnProperty("di") ? DIRS.di : DIRS.rs);
     }
-    else if (lstats.isSymbolicLink() && isExist) {  // symbolic link
+    else if (lstats.isSymbolicLink() && fs.existsSync(filepath)) {  // symbolic link
         ansiColor = (DIRS.hasOwnProperty("ln") ? DIRS.ln : DIRS.rs);
     }
-    else if (lstats.isSymbolicLink() && !isExist) {  // orphan symlink -> missing file
-        ansiColor = (DIRS.hasOwnProperty("or") ? DIRS.or : DIRS.rs);  // -> ansiColor = (DIRS.hasOwnProperty("mi") ? DIRS.or : DIRS.rs);
-    }
-    else if (lstats.isFile() && lstats.nlink>1) {  // multi-hardlink
-        ansiColor = (DIRS.hasOwnProperty("mh") ? DIRS.mh : DIRS.rs);
+    else if (lstats.isSymbolicLink() && !fs.existsSync(filepath)) {  // orphan symlink -> missing file
+        ansiColor = (DIRS.hasOwnProperty("or") ? DIRS.or : DIRS.rs);  // -> ansiColor = (DIRS.hasOwnProperty("mi") ? DIRS.mi : DIRS.rs);
     }
     else if (lstats.isFIFO()) {  // FIFO (named pipe)
         ansiColor = (DIRS.hasOwnProperty("pi") ? DIRS.pi : DIRS.rs);
@@ -164,6 +151,9 @@ function calColorCode(filepath, isCheckExt) {
     else if (lstats.isFile() && Object.keys(EXTS).includes("*."+filepath.split(".").pop()) && isCheckExt) {
         ansiColor = EXTS["*."+filepath.split(".").pop()];
     }
+    else if (lstats.isFile() && lstats.nlink>1) {  // multi-hardlink
+        ansiColor = (DIRS.hasOwnProperty("mh") ? DIRS.mh : DIRS.rs);
+    }
     else if (lstats.isFile()) {  // regular file
         ansiColor = (DIRS.hasOwnProperty("fi") ? DIRS.fi : DIRS.rs);
     }
@@ -171,52 +161,28 @@ function calColorCode(filepath, isCheckExt) {
         ansiColor = (DIRS.hasOwnProperty("no") ? DIRS.no : DIRS.rs);
     }
 
-    return ansiColor;
+    if (filename.includes(" ")) {
+        filename = ansiColor+"'"+filename+"'"+DIRS["rs"];
+    }
+    else if (isLeadingSpace) {
+        filename = " "+ansiColor+filename+DIRS["rs"];
+    }
+    else {
+        filename = ansiColor+filename+DIRS["rs"];
+    }
+
+    return filename;
 }
 
-function listPretty(isPrependSpace, path) {
-    return function (filename) {
-        const lstats = fs.lstatSync(path+"/"+filename);
-        const isExist = fs.existsSync(path+"/"+filename);
-        let linkTo = "";
-        let linkColor = DIRS.rs;
-        let prefix = "";
-        let suffix = "";
-
-        // if a filename has space, add single quote to it and leading space to others
-        if (filename.includes(" ")) {
-            prefix = "'";
-            suffix = "'";
-        }
-        else if (isPrependSpace) {
-            prefix = " ";
-        }
-
-        // if the file is a symlink, color the files they point to
-        if (isLong && lstats.isSymbolicLink()) {
-            linkTo = fs.readlinkSync(path+"/"+filename);
-            linkColor = (isExist ? calColorCode(traverseLink(path, filename), !fs.lstatSync(path+"/"+linkTo).isSymbolicLink()) : (DIRS.hasOwnProperty("mi") ? DIRS.mi : DIRS.rs));
-        }
-
-        // PRETTY THE FILENAME
-        filename = calColorCode(path+"/"+filename, true)+prefix+filename+suffix+DIRS.rs;
-        
-        // if long listing format, prepend the file status details (and also append -> for symlink)
-        if (isLong) {
-            filename = `${lstats.blocks}\t${lstats.mode}\t${lstats.nlink}\t${lstats.uid}\t${lstats.gid}\t${lstats.size}\t${lstats.mtime}\t${filename}`;
-            if (lstats.isSymbolicLink()) {
-                linkTo = (linkTo.includes(" ") ? "'" : "")+linkTo+(linkTo.includes(" ") ? "'" : "");
-                filename = filename+" -> "+linkColor+linkTo+DIRS.rs;
-            }
-        }
-
-        return filename;
+function listSingle(path, filenames) {
+    for (let row of filenames) {
+        process.stdout.write(formatPretty(path, row, false, true)+"\n");
     }
 }
 
 // https://stackoverflow.com/a/50841264
 // https://www.unix.com/man-page/opensolaris/1/ls/
-function calCharFlag(mode) {
+function filemode(mode) {
     let ftype = " ";
     let owner = "---";
     let group = "---";
@@ -267,7 +233,25 @@ function calCharFlag(mode) {
     return (ftype+owner+group+other+xattr);
 }
 
-function listLong(prettyFilenames) {
+function traverseLink(path, symlink) {
+    let filepath = path+"/"+symlink;
+
+    if (fs.lstatSync(filepath).isSymbolicLink()) {
+        if (symlink.includes("/")) {
+            path = path+symlink.slice(0, symlink.lastIndexOf("/")+1);
+        }
+        symlink = fs.readlinkSync(filepath);
+        filepath = traverseLink(path, symlink);
+    }
+
+    return filepath;
+}
+
+function listLong(path, filenames, isLeadingSpace) {
+    let filepath;
+    let lstats;
+    let rows = [];
+
     let cols = [];
     let totalBlock = 0;
     let maxNlink = 0;
@@ -276,16 +260,25 @@ function listLong(prettyFilenames) {
     let maxSize = 0;
     let length = 0;
 
+    let linkedTo = "";
+    let linkedColor = DIRS.rs;
+
     // calculate width of columns
-    for (let row of prettyFilenames) {
-        cols = row.split("\t");
-        totalBlock = totalBlock+Number(cols[0]);
-        maxNlink = (Number(cols[2])>maxNlink ? Number(cols[2]) : maxNlink);
-        length = UIDS[cols[3].toString()].length;
+    for (let [i, filename] of filenames.entries()) {
+        filepath = path+"/"+filename;
+        lstats = fs.lstatSync(filepath);
+        rows.push(`${lstats.blocks}\t${lstats.mode}\t${lstats.nlink}\t${lstats.uid}\t${lstats.gid}\t${lstats.size}\t${lstats.mtime}\t`);
+        if (lstats.isSymbolicLink()) {
+            rows[i] = rows[i]+fs.readlinkSync(filepath);
+        }
+
+        totalBlock = totalBlock+Number(lstats.blocks);
+        maxNlink = (Number(lstats.nlink)>maxNlink ? Number(lstats.nlink) : maxNlink);
+        length = UIDS[lstats.uid.toString()].length;
         maxUlength = (length>maxUlength ? length : maxUlength);
-        length = GIDS[cols[4].toString()].length;
-        maxUlength = (length>maxGlength ? length : maxGlength);
-        maxSize = (Number(cols[5])>maxSize ? Number(cols[5]) : maxSize);
+        length = GIDS[lstats.gid.toString()].length;
+        maxGlength = (length>maxGlength ? length : maxGlength);
+        maxSize = (Number(lstats.size)>maxSize ? Number(lstats.size) : maxSize);
     }
 
     // https://unix.stackexchange.com/questions/28780/file-block-size-difference-between-stat-and-ls
@@ -293,27 +286,40 @@ function listLong(prettyFilenames) {
     // but `ls` #define DEFAULT_BLOCK_SIZE 1024 *Byte*
     // so for example 9-10 blocks in `stat` would just be 5 blocks in `ls`
     process.stdout.write("total "+Math.ceil(totalBlock/2)+"\n");
-    for (let row of prettyFilenames) {
+    for (let [j, row] of rows.entries()) {
         cols = row.split("\t");
-        process.stdout.write(calCharFlag(cols[1])+" ");
+        process.stdout.write(filemode(cols[1])+" ");
         process.stdout.write(cols[2].toString().padStart(maxNlink.toString().length, " ")+" ");
         process.stdout.write(UIDS[cols[3].toString()].padEnd(maxUlength, " ")+" ");
         process.stdout.write(GIDS[cols[4].toString()].padEnd(maxGlength, " ")+" ");
         process.stdout.write(cols[5].toString().padStart(maxSize.toString().length, " ")+" ");
         process.stdout.write(cols[6].slice(4, 10).replace(" 0", "  ")+cols[6].slice(15, 21)+" ");
-        process.stdout.write(cols[7]+"\n");
-    }
-}
-
-function listSingle(prettyFilenames) {
-    for (let row of prettyFilenames) {
-        process.stdout.write(row+"\n");
+        process.stdout.write(formatPretty(path, filenames[j], isLeadingSpace, true));
+        if (cols[7]!="") {
+            try {
+                if (fs.lstatSync(path+"/"+cols[7]).isSymbolicLink()) {  // if it is a link to another symlink
+                    // then traverse the link to determine color (except extension check) first, and then replace display text back by cols[7] afterwards
+                    linkedTo = traverseLink(path, filenames[j]);
+                    linkedColor = formatPretty(path, linkedTo, false, false);
+                    linkedTo = (linkedTo.includes(" ") ? "'"+linkedTo+"'" : linkedTo);
+                    cols[7] = linkedColor.replace(linkedTo, cols[7]);
+                }
+                else {  // else it can be a direct link to file/directory (need extension check)
+                    cols[7] = formatPretty(path, cols[7], false, true);
+                }
+            }
+            catch (error) {  // or otherwise it can be a broken link to missing
+                cols[7] = formatPretty(path, cols[7], false, true);
+            }
+            process.stdout.write(" -> "+cols[7]);
+        }
+        process.stdout.write("\n");
     }
 }
 
 // https://stackoverflow.com/a/75575528/8842262
 // https://mmzeynalli.dev/posts/reinvent/ls/part5/#3-tabular
-function calColConfig(filenames, numSpace) {
+function configColumn(filenames, numSpace) {
     let maxNumCol = Math.floor(CHRS/3);  // filename minimum 1 char + 2 spaces = 3
     let maxWidths = [[0]];
     let col = 0;
@@ -325,7 +331,7 @@ function calColConfig(filenames, numSpace) {
     }
 
     //    numCol   [   0    ,    1    ,    2    , ...]
-    //       0   =    [?]
+    //       0   =    ???
     //       1   = [maxWidth]
     //       2   = [maxWidth, maxWidth]
     //       3   = [maxWidth, maxWidth, maxWidth]
@@ -356,19 +362,26 @@ function calColConfig(filenames, numSpace) {
     return maxWidths[maxWidths[0][0]];  // return the largest possible column config
 }
 
-function listTabular(prettyFilenames, padCols) {
+function listTabular(path, filenames, isLeadingSpace) {
+    let padCols = configColumn(filenames, (isLeadingSpace ? 1 : 0));
     let numPad = 0;
-    let numRow = Math.ceil(prettyFilenames.length/padCols.length);
+    let numRow = Math.ceil(filenames.length/padCols.length);
     let row = "";
-    let index;  // calculated index of prettyFilenames[]
+    let index;  // calculated index of filenames[]
 
     for (let i=0; i<numRow; i++) {  // for each row
         row = "";
         for (let j=0; j<padCols.length; j++) {  // for each col
             index = i+numRow*j;  // pick the (i+numRow*j)'th file from pretty array for printing
-            if (index<prettyFilenames.length) {
-                numPad = padCols[j]-prettyFilenames[index].replaceAll(/\x1b\[.*?m/g, "").length;
-                row = row+prettyFilenames[index]+" ".repeat(numPad);
+            if (index<filenames.length) {
+                numPad = padCols[j]-filenames[index].length;
+                if (filenames[index].includes(" ")) {
+                    numPad = numPad-2;
+                }
+                else if (isLeadingSpace) {
+                    numPad = numPad-1;
+                }
+                row = row+formatPretty(path, filenames[index], isLeadingSpace, true)+" ".repeat(numPad);
             }
         }
         process.stdout.write(row.trimEnd()+"\n");
@@ -381,14 +394,29 @@ let fileArgs = [];
 let i = 0;
 while (i<paths.length) {
     try {
-        if (fs.statSync(paths[i]).isDirectory()) {
-            i++;
+        if (fs.lstatSync(paths[i]).isSymbolicLink()) {
+            try {
+                if (fs.statSync(paths[i]).isDirectory()) {
+                    i++;
+                }
+                else {
+                    fileArgs.push(paths.splice(i, 1)[0]);
+                }
+            }
+            catch (error) {  // symlink exist but broken
+                fileArgs.push(paths.splice(i, 1)[0]);
+            }
         }
         else {
-            fileArgs.push(paths.splice(i, 1)[0]);
+            if (fs.statSync(paths[i]).isDirectory()) {
+                i++;
+            }
+            else {
+                fileArgs.push(paths.splice(i, 1)[0]);
+            }
         }
     }
-    catch (error) {
+    catch (error) {  // path not exist
         console.error(error.message.split(",")[0].replace(/^[A-Z]*:/, `${TOOL_NAME}: cannot access '${paths[i]}':`));
         paths.splice(i, 1);
     }
@@ -400,33 +428,36 @@ if (fileArgs.length>0) {
 
 // list filenames for each directory
 for (let [j, path] of paths.entries()) {
-    let prettyFilenames = [];
     let filenames = (path=="" ? fileArgs : fs.readdirSync(path));
-    let isAnySpace = !isSingle && filenames.filter((filename) => filename.includes(" ")).length!=0;
+    let isLeadingSpace = false;
 
+    // sort filenames, include/exclude hidden files, and set flag when any filename has space
     filenames.sort();
-    if (isAll && path!="") {
-        filenames.unshift("..")
-        filenames.unshift(".");
-    }
-    else {
-        while (filenames.length>0 && filenames[0].startsWith(".")) {
-            filenames.shift();
+    if (path!="") {
+        if (isAll) {
+            filenames.unshift("..");
+            filenames.unshift(".");
+        }
+        else {
+            while (filenames.length>0 && filenames[0].startsWith(".")) {
+                filenames.shift();
+            }
         }
     }
+    isLeadingSpace = filenames.filter((filename) => filename.includes(" ")).length!=0;
 
-    prettyFilenames = filenames.map(listPretty(isAnySpace, (path=="" ? "." : path)));  // the whole  ̲l̲i̲s̲t̲P̲r̲e̲t̲t̲y̲(̲i̲s̲A̲n̲y̲S̲p̲a̲c̲e̲,̲ ̲p̲a̲t̲h̲)̲ ̲ is a template function name
+    // print filenames based on command line options
     if (paths.length>1 && path!="") {
         process.stdout.write(path+":\n");
     }
     if (isLong) {
-        listLong(prettyFilenames);
+        listLong((path=="" ? "." : path), filenames, isLeadingSpace);
     }
     else if (isSingle) {
-        listSingle(prettyFilenames);
+        listSingle((path=="" ? "." : path), filenames);
     }
     else {
-        listTabular(prettyFilenames, calColConfig(filenames, (isAnySpace ? 1 : 0)));
+        listTabular((path=="" ? "." : path), filenames, isLeadingSpace);
     }
     if (j<paths.length-1) {
         process.stdout.write("\n");
