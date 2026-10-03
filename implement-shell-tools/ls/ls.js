@@ -95,7 +95,7 @@ function initEntries(filepath) {
 // https://askubuntu.com/a/884513
 // https://talyian.github.io/ansicolors/
 // apply ANSI color code (and maybe leading space or single quotes) to a filename
-function formatPretty(path, filename, isLeadingSpace, isCheckExt) {
+function formatPretty(path, filename, isLeadingSpace, extOverride) {
     let filepath = path+"/"+filename;
     let lstats = fs.lstatSync(filepath, {throwIfNoEntry:false});
     let ansiColor = DIRS.rs;
@@ -148,7 +148,10 @@ function formatPretty(path, filename, isLeadingSpace, isCheckExt) {
     else if (lstats.isFile() && (lstats.mode&0o0111)!=0) {  // executable file
         ansiColor = (DIRS.hasOwnProperty("ex") ? DIRS.ex : DIRS.rs);
     }
-    else if (lstats.isFile() && Object.keys(EXTS).includes("*."+filepath.split(".").pop()) && isCheckExt) {
+    else if (extOverride==null && lstats.isFile() && Object.keys(EXTS).includes("*."+filepath.split(".").pop())) {
+        ansiColor = EXTS["*."+filepath.split(".").pop()];
+    }
+    else if (extOverride!=null && lstats.isFile() && Object.keys(EXTS).includes("*."+extOverride.split(".").pop())) {
         ansiColor = EXTS["*."+filepath.split(".").pop()];
     }
     else if (lstats.isFile() && lstats.nlink>1) {  // multi-hardlink
@@ -176,7 +179,7 @@ function formatPretty(path, filename, isLeadingSpace, isCheckExt) {
 
 function listSingle(path, filenames) {
     for (let row of filenames) {
-        process.stdout.write(formatPretty(path, row, false, true)+"\n");
+        process.stdout.write(formatPretty(path, row, false, null)+"\n");
     }
 }
 
@@ -294,22 +297,22 @@ function listLong(path, filenames, isLeadingSpace) {
         process.stdout.write(GIDS[cols[4].toString()].padEnd(maxGlength, " ")+" ");
         process.stdout.write(cols[5].toString().padStart(maxSize.toString().length, " ")+" ");
         process.stdout.write(cols[6].slice(4, 10).replace(" 0", "  ")+cols[6].slice(15, 21)+" ");
-        process.stdout.write(formatPretty(path, filenames[j], isLeadingSpace, true));
+        process.stdout.write(formatPretty(path, filenames[j], isLeadingSpace, null));
         if (cols[7]!="") {
             try {
                 if (fs.lstatSync(path+"/"+cols[7]).isSymbolicLink()) {  // if it is a link to another symlink
                     // then traverse the link to determine color (except extension check) first, and then replace display text back by cols[7] afterwards
                     linkedTo = traverseLink(path, filenames[j]);
-                    linkedColor = formatPretty(path, linkedTo, false, false);
+                    linkedColor = formatPretty(path, linkedTo, false, cols[7]);
                     linkedTo = (linkedTo.includes(" ") ? "'"+linkedTo+"'" : linkedTo);
                     cols[7] = linkedColor.replace(linkedTo, cols[7]);
                 }
                 else {  // else it can be a direct link to file/directory (need extension check)
-                    cols[7] = formatPretty(path, cols[7], false, true);
+                    cols[7] = formatPretty(path, cols[7], false, null);
                 }
             }
             catch (error) {  // or otherwise it can be a broken link to missing
-                cols[7] = formatPretty(path, cols[7], false, true);
+                cols[7] = formatPretty(path, cols[7], false, null);
             }
             process.stdout.write(" -> "+cols[7]);
         }
@@ -381,7 +384,7 @@ function listTabular(path, filenames, isLeadingSpace) {
                 else if (isLeadingSpace) {
                     numPad = numPad-1;
                 }
-                row = row+formatPretty(path, filenames[index], isLeadingSpace, true)+" ".repeat(numPad);
+                row = row+formatPretty(path, filenames[index], isLeadingSpace, null)+" ".repeat(numPad);
             }
         }
         process.stdout.write(row.trimEnd()+"\n");
