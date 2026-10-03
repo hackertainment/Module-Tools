@@ -218,7 +218,7 @@ def list_long(path, filenames, is_leading_space):
 
 # https://stackoverflow.com/a/75575528/8842262
 # https://mmzeynalli.dev/posts/reinvent/ls/part5/#3-tabular
-def cal_col_config(filenames, num_space):
+def config_column(filenames, num_space):
     max_num_col = math.floor(CHRS/3)  # filename minimum 1 char + 2 spaces = 3
     max_widths = [[0]]
     col = 0
@@ -309,6 +309,6 @@ for j, path in enumerate(paths):
     elif is_single:
         list_single(path, filenames)
     else:
-        list_tabular(path, filenames, is_leading_space, cal_col_config(filenames, 1 if is_leading_space else 0))
+        list_tabular(path, filenames, is_leading_space, config_column(filenames, 1 if is_leading_space else 0))
     if j<(len(paths)-1):
         print()
