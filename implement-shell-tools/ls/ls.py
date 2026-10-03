@@ -209,10 +209,10 @@ def list_long(path, filenames, is_leading_space):
     for j, row in enumerate(rows):
         cols = row.split("\t")
         print(stat.filemode(int(cols[1]))+file_xattr(), end=" ")
-        print(("%"+str(len(str(max_nlink)))+"s") % cols[2], end=" ")
-        print(("%"+str(max_ulength)+"s") % UIDS[cols[3]], end=" ")
-        print(("%"+str(max_glength)+"s") % GIDS[cols[4]], end=" ")
-        print(("%"+str(len(str(max_size)))+"s") % cols[5], end=" ")
+        print(("%"+str(len(str(max_nlink)))+"s") % (cols[2]), end=" ")
+        print(("%"+str(max_ulength)+"s") % (UIDS[cols[3]]), end=" ")
+        print(("%"+str(max_glength)+"s") % (GIDS[cols[4]]), end=" ")
+        print(("%"+str(len(str(max_size)))+"s") % (cols[5]), end=" ")
         print(datetime.datetime.fromtimestamp(float(cols[6])).strftime("%b\t%d %H:%M").replace("\t0", "  ").replace("\t", " "), end=" ")
         print(format_pretty(path, filenames[j], is_leading_space, None), end="")
         if cols[7]!="":
