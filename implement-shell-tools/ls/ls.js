@@ -394,34 +394,24 @@ function listTabular(path, filenames, isLeadingSpace) {
 DIRS.rs = "\x1b[0m";
 // separate files from directories (by storing filenames under an imaginary directory ""), and sort the directory names
 let fileArgs = [];
+let lstats;
+let stats;
 let i = 0;
 while (i<paths.length) {
-    try {
-        if (fs.lstatSync(paths[i]).isSymbolicLink()) {
-            try {
-                if (fs.statSync(paths[i]).isDirectory()) {
-                    i++;
-                }
-                else {
-                    fileArgs.push(paths.splice(i, 1)[0]);
-                }
-            }
-            catch (error) {  // symlink exist but broken
-                fileArgs.push(paths.splice(i, 1)[0]);
-            }
-        }
-        else {
-            if (fs.statSync(paths[i]).isDirectory()) {
-                i++;
-            }
-            else {
-                fileArgs.push(paths.splice(i, 1)[0]);
-            }
-        }
-    }
-    catch (error) {  // path not exist
-        console.error(error.message.split(",")[0].replace(/^[A-Z]*:/, `${TOOL_NAME}: cannot access '${paths[i]}':`));
+    lstats = fs.lstatSync(paths[i], {throwIfNoEntry:false});
+    stats = fs.statSync(paths[i], {throwIfNoEntry:false});
+    if (lstats===undefined) {  // if path not exist
+        console.error(`${TOOL_NAME}: cannot access '${paths[i]}': No such file or directory`);
         paths.splice(i, 1);
+    }
+    else if (lstats.isSymbolicLink() && stats===undefined) {  // if symlink exist but broken
+        fileArgs.push(paths.splice(i, 1)[0]);
+    }
+    else if (stats.isDirectory()) {
+        i++;
+    }
+    else {
+        fileArgs.push(paths.splice(i, 1)[0]);
     }
 }
 paths.sort();
