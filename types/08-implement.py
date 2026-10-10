@@ -1,16 +1,24 @@
+from datetime import date
+import math
+
 class Person:
-    def __init__(self, name: str, age: int, preferred_car_brand: str):
+    def __init__(self, name: str, date_of_birth: date, preferred_car_brand: str):
         self.name = name
-        self.age = age
+        self.date_of_birth = date_of_birth
         self.preferred_car_brand = preferred_car_brand
 
-def drivers_license_check(person: Person):
+    def is_adult(self) -> bool:
+        today = date.today()
+        age = math.floor((today-self.date_of_birth).days/365.25)
+        return age>=18
+
+def drivers_license_check(person: Person) -> str:
   if person.is_adult():
     return 'Valid drivers license'
 
   return 'This person is underage!'
 
-imran = Person("Imran", 22, "Mercedes")
+imran = Person("Imran", date(2004, 1, 1), "Mercedes")
 print(drivers_license_check(imran)) # should return 'Valid drivers license'
 
 # TASK 8:
