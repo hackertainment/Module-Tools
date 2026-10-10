@@ -77,6 +77,6 @@ print(unsorted_values.max_gap_between_values())  # This doesn't work - the super
 # Answer the following questions, writing your answers in the file, before checking the answers.
 #
 # Q1: If you know in advance you need to frequently access the largest item of the list, which class will be more efficient and why?
-#
+#     `SortedImmutableNumberList` because we need to go through the entire list (which may take some time) to find the largest element in `ImmutableNumberList` version.
 # Q2: If you know in advance you will be initialising many of them repeatedly, which class will be more efficient and why?
-#
+#     `ImmutableNumberList` because no extra work to make sure the elements are sorted when constructing the list which takes less time than the `SortedImmutableNumberList` version would.
