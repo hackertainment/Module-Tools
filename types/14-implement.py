@@ -1,10 +1,16 @@
 from dataclasses import dataclass
+from enum import Enum
+
+class OperatingSystem(Enum):
+    MACOS = "macOS"
+    ARCH = "Arch Linux"
+    UBUNTU = "Ubuntu"
 
 @dataclass(frozen=True)
 class Person:
     name: str
     age: int
-    preferred_operating_system: str
+    preferred_operating_system: OperatingSystem
 
 
 @dataclass(frozen=True)
@@ -13,7 +19,7 @@ class Laptop:
     manufacturer: str
     model: str
     screen_size_in_inches: float
-    operating_system: str
+    operating_system: OperatingSystem
 
 
 def find_possible_laptops(laptops: list[Laptop], person: Person) -> list[Laptop]:
@@ -25,16 +31,44 @@ def find_possible_laptops(laptops: list[Laptop], person: Person) -> list[Laptop]
 
 
 people = [
-    Person(name="Imran", age=22, preferred_operating_system="ubuntu"),
-    Person(name="Eliza", age=34, preferred_operating_system="arch"),
+    Person(name="Imran", age=22, preferred_operating_system=OperatingSystem.UBUNTU),
+    Person(name="Eliza", age=34, preferred_operating_system=OperatingSystem.ARCH),
 ]
 
 laptops = [
-    Laptop(id=1, manufacturer="Dell", model="XPS", screen_size_in_inches=13, operating_system="arch"),
-    Laptop(id=2, manufacturer="Dell", model="XPS", screen_size_in_inches=15, operating_system="ubuntu"),
-    Laptop(id=3, manufacturer="Dell", model="XPS", screen_size_in_inches=15, operating_system="ubuntu"),
-    Laptop(id=4, manufacturer="Apple", model="macBook", screen_size_in_inches=13, operating_system="macos"),
+    Laptop(id=1, manufacturer="Dell", model="XPS", screen_size_in_inches=13, operating_system=OperatingSystem.ARCH),
+    Laptop(id=2, manufacturer="Dell", model="XPS", screen_size_in_inches=15, operating_system=OperatingSystem.UBUNTU),
+    Laptop(id=3, manufacturer="Dell", model="XPS", screen_size_in_inches=15, operating_system=OperatingSystem.UBUNTU),
+    Laptop(id=4, manufacturer="Apple", model="macBook", screen_size_in_inches=13, operating_system=OperatingSystem.MACOS),
 ]
+
+name = ""
+while name=="":
+    name = input("Enter your name: ").strip()
+age = 0
+while age<=0:
+    try:
+        age = int(input("Enter your age: ").strip())
+    except ValueError:
+        print("Invalid age, please enter an integer!")
+print("1.", OperatingSystem.MACOS)
+print("2.", OperatingSystem.ARCH)
+print("3.", OperatingSystem.UBUNTU)
+print("0.", "None of the above")
+os = ""
+while os!="0" and os!="1" and os!="2" and os!="3":
+    os = input("Enter your preferred OS (0-3): ").strip()
+if os=="1":
+    preferred_os = OperatingSystem.MACOS
+if os=="2":
+    preferred_os = OperatingSystem.ARCH
+if os=="3":
+    preferred_os = OperatingSystem.UBUNTU
+if os=="0":
+    print(f"No laptop available for {name}!")
+else:
+    person = Person(name=name, age=age, preferred_operating_system=preferred_os)
+    people.append(person)
 
 for person in people:
     possible_laptops = find_possible_laptops(laptops, person)

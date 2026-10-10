@@ -1,13 +1,18 @@
-class Person:
-    def __init__(self, name: str, age: int, preferred_car_brand: str):
-        self.name = name
-        self.age = age
-        self.preferred_car_brand = preferred_car_brand
+from dataclasses import dataclass
 
-    def is_adult(self):
+@dataclass(frozen=True)
+class Person:
+    name: str
+    age: int
+    preferred_car_brand: str
+
+    def is_adult(self) -> bool:
         return self.age >= 18
 
-def drivers_license_check(person: Person):
+    def greet(self) -> str:
+        return "Hello "+self.name+"!"
+
+def drivers_license_check(person: Person) -> str:
   if person.is_adult():
     return 'Valid drivers license'
 
@@ -31,3 +36,5 @@ print(drivers_license_check(imran)) # should return 'Valid drivers license'
 # Read the @dataclass documentation here: https://docs.python.org/3/library/dataclasses.html
 # Explain what `frozen=True` does to the class?
 # What other options could you play around with and explore? Offer suggestions for any that would be useful here.
+#     frozen=true emulates read-only frozen instances and assigns to fields will generate an exception.
+#     order=true generates __lt__(), __le__(), __gt__(), and __ge__() methods and compare the class as if it were a tuple of its fields in order.

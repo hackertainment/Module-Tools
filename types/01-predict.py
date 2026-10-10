@@ -13,29 +13,29 @@ def second(value):
 # (feel free to comment out lines if you think they cause errors or crashes while testing)
 
 print(half(22))
-# Prediction:
-# What actually happens and why:
+# Prediction:  11
+# What actually happens and why:  11.0 : there is no integer division in python and division will be casted to float
 
 print(half("22"))
-# Prediction:
-# What actually happens and why:
+# Prediction:  error
+# What actually happens and why:  TypeError: unsupported operand type(s) for /: 'str' and 'int'
 
 print(double(22))
-# Prediction:
-# What actually happens and why:
+# Prediction:  44
+# What actually happens and why:  44 : there is integer multiplication in python
 
 print(double("22"))
-# Prediction:
-# What actually happens and why:
+# Prediction:  2222
+# What actually happens and why:  2222 : multiplication operator means repeat in string operations
 
 print(second(22))
-# Prediction:
-# What actually happens and why:
+# Prediction:  error
+# What actually happens and why:  TypeError: 'int' object is not subscriptable
 
 print(second(0x16))
-# Prediction:
-# What actually happens and why:
+# Prediction:  error
+# What actually happens and why:  TypeError: 'int' object is not subscriptable
 
 print(second("22"))
-# Prediction:
-# What actually happens and why:
+# Prediction:  2
+# What actually happens and why:  2 : index operater means the position of character in a string

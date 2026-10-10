@@ -27,16 +27,16 @@ class Child(Parent):
 # Describe what is happening and why on each line below here
 # If any lines cause errors, comment out the line and explain why the error happens
 
-person1 = Child("Elizaveta", "Alekseeva")
-print(person1.get_name())
-print(person1.get_full_name())
-person1.change_last_name("Tyurina")
-print(person1.get_name())
-print(person1.get_full_name())
+person1 = Child("Elizaveta", "Alekseeva")   # initiate a `Child` object
+print(person1.get_name())                   # call Child's get_name() method inherited from `Parent` class and print "Elizaveta Alekseeva"
+print(person1.get_full_name())              # call Child's get_full_name() method and print "Elizaveta Alekseeva"
+person1.change_last_name("Tyurina")         # call Child's change_last_name() method and updated its last name with old one stored
+print(person1.get_name())                   # call Child's get_name() method inherited from `Parent` class and print "Elizaveta Tyurina"
+print(person1.get_full_name())              # call Child's get_full_name() method and print "Elizaveta Tyurina (née Alekseeva)"
 
-person2 = Parent("Elizaveta", "Alekseeva")
-print(person2.get_name())
-print(person2.get_full_name())
-person2.change_last_name("Tyurina")
-print(person2.get_name())
-print(person2.get_full_name())
+person2 = Parent("Elizaveta", "Alekseeva")  # initiate a `Parent` object
+print(person2.get_name())                   # call Parent's get_name() method and print "Elizaveta Alekseeva"
+#print(person2.get_full_name())             # call Parent's get_full_name() method which does not exist
+#person2.change_last_name("Tyurina")        # call Parent's change_last_name() method which does not exist
+print(person2.get_name())                   # call Parent's get_name() method and print "Elizaveta Alekseeva"
+#print(person2.get_full_name())             # call Parent's get_full_name() method which does not exist

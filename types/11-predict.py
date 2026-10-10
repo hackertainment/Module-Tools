@@ -31,5 +31,8 @@ print_family_tree(family)
 
 # TASK 11
 # There is a bug in this code. Can you spot it?
+#     AttributeError: 'Animal' object has no attribute 'age'
 # Run your code through mypy. Does mypy spot it?
+#     11-predict.py:16: error: Missing type parameters for generic type "list"  [type-arg]
 # Offer an explanation for what is happening.
+#     `FamilyTree.members` is a list, but mypy doesn't know what type of thing is in the list. It doesn't even know that everything in the list has the same type = `["hello", 7, True]` is a legal list in Python. Many people would consider a pet to be a member of the family, so it seems correct, but due to the different types, this code breaks down and mypy can't spot the problem.

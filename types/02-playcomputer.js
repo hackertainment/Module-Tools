@@ -9,7 +9,7 @@ const rl = readline.createInterface({
 rl.question("What URL should we fetch?\n> ", async (url) => {
 	const response = await fetch(url);
 	if (!response.ok) {
-		if (response.body.toLowerCase().includes("permission")) {
+		if (response.body.toLowerCase().includes("permission")) {  // `response.body` is a stream but not a string and does not have the .toLowerCase() method
 			console.error("You didn't have permission to get that URL");
 		} else {
 			console.error(`The request failed - body: ${response.body}`);
@@ -17,7 +17,7 @@ rl.question("What URL should we fetch?\n> ", async (url) => {
 		process.exit(1);
 	}
 
-	const contents = await response.json();
+	const contents = await response.json();  // `response` may be an invalid json or not a json format and can throw an exception
 
 	console.log(contents);
 

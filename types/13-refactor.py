@@ -4,7 +4,7 @@ from dataclasses import dataclass
 class Person:
     name: str
     age: int
-    preferred_operating_system: str
+    preferred_operating_systems: list[str]
 
 
 @dataclass(frozen=True)
@@ -19,14 +19,14 @@ class Laptop:
 def find_possible_laptops(laptops: list[Laptop], person: Person) -> list[Laptop]:
     possible_laptops = []
     for laptop in laptops:
-        if laptop.operating_system == person.preferred_operating_system:
+        if laptop.operating_system in person.preferred_operating_systems:
             possible_laptops.append(laptop)
     return possible_laptops
 
 
 people = [
-    Person(name="Imran", age=22, preferred_operating_system="Ubuntu"),
-    Person(name="Eliza", age=34, preferred_operating_system="Arch Linux"),
+    Person(name="Imran", age=22, preferred_operating_systems=["Ubuntu"]),
+    Person(name="Eliza", age=34, preferred_operating_systems=["Arch Linux"]),
 ]
 
 laptops = [

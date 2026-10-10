@@ -1,24 +1,41 @@
 from dataclasses import dataclass
+from typing import TypeVar, Generic
+
+T = TypeVar('T')
 
 @dataclass(frozen=True)
 class Animal:
     name: str
     size: str
 
+    def __str__(self) -> str:
+        return f"{self.name} ({self.size} size)"
+
 @dataclass(frozen=True)
 class Person:
     name: str
     age: int
 
+    def __str__(self) -> str:
+        return f"{self.name} ({self.age} years old)"
+
 @dataclass(frozen=True)
-class Tree[T]:
+class Region:
+    name: str
+    population: float
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.population}m residents)"
+
+@dataclass(frozen=True)
+class Tree(Generic[T]):
     parent: T
     children: list[T]
 
-    def print_tree(self):
+    def print_tree(self) -> None:
         print(self.parent)
         for child in self.children:
-            print(child)
+            print("-", child)
 
 fatma = Person(name="Fatma", age=4)
 aisha = Person(name="Aisha", age=6)
@@ -30,8 +47,14 @@ dogs = Animal(name="Dog", size="Medium")
 mammals = Animal(name="Mammals", size="Variable")
 species_tree = Tree[Animal](parent=mammals, children=[cats, dogs])
 
+east = Region(name="East Midlands", population=5.09)
+west = Region(name="West Midlands", population=6.21)
+midlands = Region(name="Midlands", population=11.30)
+metropolis_tree = Tree[Region](parent=midlands, children=[east, west])
+
 family_tree.print_tree()
 species_tree.print_tree()
+metropolis_tree.print_tree()
 
 # TASK 12:
 # We are going to improve the printing in the above code.
