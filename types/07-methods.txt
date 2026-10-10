@@ -1,5 +1,11 @@
 TASK 7:
 Answer the following questions:
 What is the difference between a method and a function?
+- Function is a standalone block of code that is defined independently of any class or object. It is called directly by its name and pass any required data into it as parameters.
+- Method is a function that is associated with a specific object or class. It is called on an instance of an object (and can directly access and manipulate that object's internal state).
 Can you give some advantages of methods over functions?
+- Encapsulation: Methods bundle data and the behaviors that act upon that data into a single unit (an object), protecting the data from unintended external modification.
+- Implicit State Access: Unlike standard functions that require you to explicitly pass every piece of data through parameters, methods automatically have access to their object's attributes (using keywords like self in Python or this in JavaScript).
+- Cleaner Code Organization: Grouping related logic into methods within a class makes complex codebases much easier to navigate, read, and maintain.
+- Support for Inheritance and Polymorphism: Methods allow different classes to share common behaviors or override specific actions, making code vastly more flexible and reusable.
 
